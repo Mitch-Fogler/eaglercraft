@@ -1,0 +1,15 @@
+{
+  "name": "swiss",
+  "version": "2.0.0",
+  "private": true,
+  "description": "lichess.org swiss tournament",
+  "author": "Thibault Duplessis",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "lib": "workspace:*",
+    "flatpickr": "^4.6.13"
+  },
+  "build": {
+    "bundle": "src/swiss.ts"
+  }
+}
