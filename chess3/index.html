@@ -11,7 +11,15 @@
     #game-options select { font-size: 16px; margin-right: 10px; }
     #chessboard { margin: 0 auto; display: inline-block; }
     table { border-collapse: collapse; }
-    td { width: 60px; height: 60px; vertical-align: middle; text-align: center; font-size: 42px; cursor: pointer; user-select: none; }
+    td {
+      width: 60px;
+      height: 60px;
+      vertical-align: middle;
+      text-align: center;
+      font-size: 42px;
+      cursor: pointer;
+      user-select: none;
+    }
     .dark { background-color: #b58863; }
     .light { background-color: #f0d9b5; }
     .selected { outline: 3px solid red; }
@@ -59,7 +67,6 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20 (Strongest)</option>
-        
       </select>
     </span>
 
@@ -87,7 +94,6 @@
          <option value="18">18</option>
          <option value="19">19</option>
          <option value="20">20</option>
-        
       </select>
     </span>
 
@@ -118,7 +124,6 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20</option>
-        
       </select>
 
       <label for="blackDifficultySelect">Black Skill:</label>
@@ -146,7 +151,6 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20</option>
-        
       </select>
     </span>
   </div>
@@ -166,11 +170,11 @@
     var boardDiv = document.getElementById("chessboard");
     var isSinglePlayerMode = false; // For modes where a human plays vs an engine.
     var currentMode = "twoplayer"; // Options: 'twoplayer', 'stockfish', 'losing', 'enginevengine'
-    var humanColor = 'w'; // In single‑player modes, human is white by default.
+    var humanColor = 'w'; // In single-player modes, human is white by default.
     var files = ['a','b','c','d','e','f','g','h'];
-    
+
     // Stockfish Workers for Standard and Engine vs Engine modes
-    var stockfish = null;          // Used for standard single‑player mode.
+    var stockfish = null;          // Used for standard single-player mode.
     var stockfishWhite = null;     // Used for engine vs engine mode (white side)
     var stockfishBlack = null;     // Used for engine vs engine mode (black side)
 
@@ -194,7 +198,7 @@
       boardDiv.innerHTML = "";
       boardDiv.appendChild(table);
     }
-    
+
     function drawBoard() {
       var boardState = game.board();
       for (var i = 0; i < 8; i++) {
@@ -208,7 +212,7 @@
       }
       updateStatus();
     }
-    
+
     // Map chess pieces to Unicode symbols.
     function getUnicode(piece) {
       var unicode = {
@@ -221,7 +225,7 @@
       };
       return unicode[piece.type][piece.color];
     }
-    
+
     function updateStatus() {
       var statusDiv = document.getElementById("status");
       var status = "";
@@ -235,8 +239,45 @@
       }
       statusDiv.textContent = status;
     }
-    
-    /* ----------------------- Move Handling ----------------------- */
+
+    /* ----------------------- Helper Functions for Promotion ----------------------- */
+    // For engine moves: if a promotion move leads to stalemate, try alternatives.
+    function getEnginePromotionMove(fen, from, to) {
+      var promotions = ['q', 'r', 'b', 'n'];
+      for (var i = 0; i < promotions.length; i++) {
+        var promo = promotions[i];
+        var clone = new Chess(fen);
+        var move = clone.move({ from: from, to: to, promotion: promo });
+        // If the move is legal and does not result in a draw (likely a stalemate), return this promotion.
+        if (move && !clone.in_draw()) {
+          return { from: from, to: to, promotion: promo };
+        }
+      }
+      // If all promotions lead to draw, default to queen.
+      return { from: from, to: to, promotion: 'q' };
+    }
+
+    // Given an engine bestmove string and current FEN, adjust promotion if needed.
+    function fixEnginePromotion(bestMove, currentFen) {
+      var from = bestMove.substring(0, 2);
+      var to = bestMove.substring(2, 4);
+      // If bestMove string includes a promotion letter (length 5)
+      if (bestMove.length === 5) {
+        var promo = bestMove[4];
+        var clone = new Chess(currentFen);
+        clone.move({ from: from, to: to, promotion: promo });
+        if (clone.in_draw()) {
+          // If resulting move is a draw (likely stalemate), try alternatives.
+          return getEnginePromotionMove(currentFen, from, to);
+        } else {
+          return { from: from, to: to, promotion: promo };
+        }
+      }
+      // Not a promotion move.
+      return { from: from, to: to };
+    }
+
+    /* ----------------------- Move Handling (with Underpromotion) ----------------------- */
     function onCellClick(e) {
       // In engine vs engine mode, disable human moves.
       if (currentMode === "enginevengine") return;
@@ -244,7 +285,7 @@
       if (!selectedSquare) {
         var piece = game.get(square);
         if (piece && piece.color === game.turn()) {
-          // In single‑player modes, only allow the human to move their own pieces.
+          // In single-player modes, only allow the human to move their own pieces.
           if ((currentMode === "stockfish" || currentMode === "losing") && piece.color !== humanColor) return;
           selectedSquare = square;
           e.currentTarget.classList.add("selected");
@@ -255,22 +296,35 @@
           selectedSquare = null;
           return;
         }
-        var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+        var from = selectedSquare;
+        var to = square;
+        var piece = game.get(from);
+        var promoChoice = 'q'; // Default promotion.
+        if (piece && piece.type === 'p' &&
+           ((piece.color === 'w' && square.endsWith("8")) ||
+           (piece.color === 'b' && square.endsWith("1")))) {
+          // For human moves, prompt for promotion choice.
+          var choice = prompt("Promote to (q, r, b, n):", "q");
+          if (choice && ["q", "r", "b", "n"].includes(choice.toLowerCase())) {
+            promoChoice = choice.toLowerCase();
+          }
+        }
+        var move = game.move({ from: from, to: to, promotion: promoChoice });
         if (move === null) {
           alert("Invalid move!");
         }
         selectedSquare = null;
         drawBoard();
-        // After a human move in a single‑player mode:
-        if ((currentMode === "stockfish" || currentMode === "losing") && game.turn() !== humanColor && !game.game_over()) {
+        // After a human move in a single-player mode:
+        if ((currentMode === "stockfish" || currentMode === "losing") &&
+            game.turn() !== humanColor && !game.game_over()) {
           if (currentMode === "stockfish") {
-            // Check the selected difficulty.
             var diff = parseInt(document.getElementById("difficultySelect").value, 10);
             if (diff === -1) {
-              // Use worst-move search at depth 20.
+              // Use worst-move search at fixed depth 10.
               setTimeout(function() {
                 chooseWorstMoveUsingStockfish(10).then(function(engineMove) {
-                  if (engineMove) { game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' }); }
+                  if (engineMove) { game.move(engineMove); }
                   drawBoard();
                 });
               }, 250);
@@ -278,10 +332,9 @@
               setTimeout(function() { askEngineForMove(game.fen()); }, 250);
             }
           } else if (currentMode === "losing") {
-            // Losing mode always uses the losing-depth selector.
             setTimeout(function() {
               chooseWorstMoveUsingStockfish().then(function(engineMove) {
-                if (engineMove) { game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' }); }
+                if (engineMove) { game.move(engineMove); }
                 drawBoard();
               });
             }, 250);
@@ -289,7 +342,7 @@
         }
       }
     }
-    
+
     /* ----------------------- Stockfish Integration (Standard Mode) ----------------------- */
     function initStockfish() {
       if (typeof(Worker) === "undefined") {
@@ -305,11 +358,9 @@
             var tokens = msg.split(" ");
             var bestMove = tokens[1];
             if (bestMove && bestMove !== "(none)") {
-              game.move({
-                from: bestMove.substring(0, 2),
-                to: bestMove.substring(2, 4),
-                promotion: 'q'
-              });
+              // Adjust the promotion if needed.
+              var moveObj = fixEnginePromotion(bestMove, game.fen());
+              game.move(moveObj);
               drawBoard();
             }
           }
@@ -320,13 +371,13 @@
         updateSingleEngineDifficulty();
       }
     }
-    
+
     function updateSingleEngineDifficulty() {
       var diffSelect = document.getElementById("difficultySelect");
       var diff = diffSelect.value;
       stockfish.postMessage("setoption name Skill Level value " + diff);
     }
-    
+
     function askEngineForMove(fen) {
       if (!stockfish) {
         console.error("Stockfish engine not initialized.");
@@ -335,7 +386,7 @@
       stockfish.postMessage("position fen " + fen);
       stockfish.postMessage("go movetime 500");
     }
-    
+
     /* ----------------------- Losing Mode Using Stockfish ----------------------- */
     // Evaluate a given position using a temporary Stockfish worker.
     function evaluateMoveWithStockfish(fen, depth = 12) {
@@ -360,7 +411,7 @@
         }, 200);
       });
     }
-    
+
     // Modified to optionally accept a custom depth parameter.
     function chooseWorstMoveUsingStockfish(customDepth) {
       var moves = game.moves({ verbose: true });
@@ -382,11 +433,11 @@
          return worstMoveObject.move;
       });
     }
-    
+
     /* ----------------------- Engine vs Engine Mode ----------------------- */
     var stockfishWhite = null;
     var stockfishBlack = null;
-    
+
     function initEngineVsEngine() {
       if (stockfish) { stockfish.terminate(); stockfish = null; }
       if (typeof(Worker) === "undefined") {
@@ -402,11 +453,8 @@
             var tokens = msg.split(" ");
             var bestMove = tokens[1];
             if (bestMove && bestMove !== "(none)") {
-              game.move({
-                from: bestMove.substring(0,2),
-                to: bestMove.substring(2,4),
-                promotion: 'q'
-              });
+              var moveObj = fixEnginePromotion(bestMove, game.fen());
+              game.move(moveObj);
               drawBoard();
               setTimeout(autoPlayEngineVsEngine, 250);
             }
@@ -427,11 +475,8 @@
             var tokens = msg.split(" ");
             var bestMove = tokens[1];
             if (bestMove && bestMove !== "(none)") {
-              game.move({
-                from: bestMove.substring(0,2),
-                to: bestMove.substring(2,4),
-                promotion: 'q'
-              });
+              var moveObj = fixEnginePromotion(bestMove, game.fen());
+              game.move(moveObj);
               drawBoard();
               setTimeout(autoPlayEngineVsEngine, 250);
             }
@@ -444,7 +489,7 @@
       }
       autoPlayEngineVsEngine();
     }
-    
+
     function updateEngineDifficulty(side) {
       if (side === 'w') {
         var level = document.getElementById("whiteDifficultySelect").value;
@@ -454,7 +499,7 @@
         stockfishBlack.postMessage("setoption name Skill Level value " + level);
       }
     }
-    
+
     function autoPlayEngineVsEngine() {
       if (game.game_over()) { updateStatus(); return; }
       var fen = game.fen();
@@ -462,9 +507,7 @@
         var whiteDiff = parseInt(document.getElementById("whiteDifficultySelect").value, 10);
         if (whiteDiff === -1) {
           chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
-            if (engineMove) {
-              game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
-            }
+            if (engineMove) { game.move(engineMove); }
             drawBoard();
             setTimeout(autoPlayEngineVsEngine, 250);
           });
@@ -476,9 +519,7 @@
         var blackDiff = parseInt(document.getElementById("blackDifficultySelect").value, 10);
         if (blackDiff === -1) {
           chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
-            if (engineMove) {
-              game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
-            }
+            if (engineMove) { game.move(engineMove); }
             drawBoard();
             setTimeout(autoPlayEngineVsEngine, 250);
           });
@@ -488,7 +529,7 @@
         }
       }
     }
-    
+
     /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
     document.getElementById("modeSelect").addEventListener("change", function(e) {
       currentMode = e.target.value;
@@ -520,14 +561,14 @@
       }
       resetGame();
     });
-    
+
     document.getElementById("whiteDifficultySelect").addEventListener("change", function(){
       if (currentMode === "enginevengine" && stockfishWhite) { updateEngineDifficulty('w'); }
     });
     document.getElementById("blackDifficultySelect").addEventListener("change", function(){
       if (currentMode === "enginevengine" && stockfishBlack) { updateEngineDifficulty('b'); }
     });
-    
+
     function resetGame() {
       game.reset();
       selectedSquare = null;
@@ -536,11 +577,12 @@
         setTimeout(autoPlayEngineVsEngine, 250);
       }
     }
-    
+
     document.getElementById("resetButton").addEventListener("click", resetGame);
-    
+
     createBoard();
     drawBoard();
   </script>
+  <p><small>v.1.7</small></p>
 </body>
 </html>
