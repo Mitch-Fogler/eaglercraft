@@ -3,55 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mitch's Sigma Chess</title>
+  <title>Over the Board Chess</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-    }
-    h1 {
-      margin-bottom: 10px;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    h1 { margin-bottom: 10px; }
     #game-options label,
-    #game-options select {
-      font-size: 16px;
-      margin-right: 10px;
-    }
-    #chessboard {
-      margin: 0 auto;
-      display: inline-block;
-    }
-    table {
-      border-collapse: collapse;
-    }
-    td {
-      width: 60px;
-      height: 60px;
-      vertical-align: middle;
-      text-align: center;
-      font-size: 42px;
-      cursor: pointer;
-      user-select: none;
-    }
-    .dark {
-      background-color: #b58863;
-    }
-    .light {
-      background-color: #f0d9b5;
-    }
-    .selected {
-      outline: 3px solid red;
-    }
-    #status {
-      margin-top: 15px;
-      font-size: 20px;
-    }
-    #resetButton {
-      margin-top: 10px;
-      padding: 5px 15px;
-      font-size: 16px;
-    }
+    #game-options select { font-size: 16px; margin-right: 10px; }
+    #chessboard { margin: 0 auto; display: inline-block; }
+    table { border-collapse: collapse; }
+    td { width: 60px; height: 60px; vertical-align: middle; text-align: center; font-size: 42px; cursor: pointer; user-select: none; }
+    .dark { background-color: #b58863; }
+    .light { background-color: #f0d9b5; }
+    .selected { outline: 3px solid red; }
+    #status { margin-top: 15px; font-size: 20px; }
+    #resetButton { margin-top: 10px; padding: 5px 15px; font-size: 16px; }
   </style>
 </head>
 <body>
@@ -167,13 +132,13 @@
     var currentMode = "twoplayer"; // Options: 'twoplayer', 'stockfish', 'losing', 'enginevengine'
     var humanColor = 'w'; // In single‑player modes, human is white by default.
     var files = ['a','b','c','d','e','f','g','h'];
-
-    // Stockfish Workers
-    var stockfish = null;          // Used for single‑player mode ("stockfish")
+    
+    // Stockfish Workers for Standard and Engine vs Engine modes
+    var stockfish = null;          // Used for standard single‑player mode.
     var stockfishWhite = null;     // Used for engine vs engine mode (white side)
     var stockfishBlack = null;     // Used for engine vs engine mode (black side)
 
-    /* ----------------------- Board and Rendering ----------------------- */
+    /* ----------------------- Board Rendering ----------------------- */
     function createBoard() {
       var table = document.createElement("table");
       for (var i = 0; i < 8; i++) {
@@ -207,8 +172,8 @@
       }
       updateStatus();
     }
-
-    // Map chess pieces to Unicode characters.
+    
+    // Map chess pieces to Unicode symbols.
     function getUnicode(piece) {
       var unicode = {
         'p': {'w': '♙', 'b': '♟'},
@@ -243,7 +208,7 @@
       if (!selectedSquare) {
         var piece = game.get(square);
         if (piece && piece.color === game.turn()) {
-          // In single‑player modes, only allow the human to move his own pieces.
+          // In single‑player modes, only allow the human to move their own pieces.
           if ((currentMode === "stockfish" || currentMode === "losing") && piece.color !== humanColor) return;
           selectedSquare = square;
           e.currentTarget.classList.add("selected");
@@ -260,24 +225,26 @@
         }
         selectedSquare = null;
         drawBoard();
-        // After a human move, if in a single‑player mode, let the engine make its move.
+        // After a human move, if in a single‑player mode, let the engine move.
         if ((currentMode === "stockfish" || currentMode === "losing") && game.turn() !== humanColor && !game.game_over()) {
           if (currentMode === "stockfish") {
             setTimeout(function() { askEngineForMove(game.fen()); }, 250);
           } else if (currentMode === "losing") {
+            // Use Stockfish at full strength to find the worst move.
             setTimeout(function() {
-              var engineMove = chooseLosingMove();
-              if (engineMove) {
-                game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
-              }
-              drawBoard();
+              chooseWorstMoveUsingStockfish().then(function(engineMove) {
+                if (engineMove) {
+                  game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
+                }
+                drawBoard();
+              });
             }, 250);
           }
         }
       }
     }
     
-    /* ----------------------- Stockfish Integration (Standard) ----------------------- */
+    /* ----------------------- Stockfish Integration (Standard Mode) ----------------------- */
     function initStockfish() {
       if (typeof(Worker) === "undefined") {
         console.error("Your browser does not support Web Workers.");
@@ -323,45 +290,58 @@
       stockfish.postMessage("go movetime 500");
     }
     
-    /* ----------------------- Losing Mode ----------------------- */
-    // A simple evaluation based solely on material counts.
-    function evaluateBoardForColor(gameInstance, color) {
-      var values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-      var board = gameInstance.board();
-      var score = 0;
-      for (var i = 0; i < board.length; i++) {
-        for (var j = 0; j < board[i].length; j++) {
-          var piece = board[i][j];
-          if (piece) {
-            var val = values[piece.type];
-            score += (piece.color === color ? val : -val);
+    /* ----------------------- Losing Mode Using Stockfish ----------------------- */
+    // This function creates a new temporary Stockfish worker to evaluate a position.
+    // It sends the provided FEN to Stockfish, asks it to search to a given depth,
+    // and parses the evaluation (in centipawns) from the info lines.
+    function evaluateMoveWithStockfish(fen, depth = 12) {
+      return new Promise(function(resolve, reject) {
+        var worker = new Worker('stockfish.js');
+        var evaluationScore = null;
+        worker.onmessage = function(e) {
+          var line = e.data;
+          // Look for info lines containing "score cp"
+          if (line.indexOf("info") !== -1 && line.indexOf("score cp") !== -1) {
+            var scoreMatch = line.match(/score cp (-?\d+)/);
+            if (scoreMatch) {
+              evaluationScore = parseInt(scoreMatch[1], 10);
+            }
           }
-        }
-      }
-      return score;
+          // When bestmove is received, resolve with the last score seen.
+          if (line.indexOf("bestmove") === 0) {
+            worker.terminate();
+            resolve(evaluationScore);
+          }
+        };
+        worker.postMessage("uci");
+        setTimeout(function() {
+          worker.postMessage("position fen " + fen);
+          worker.postMessage("go depth " + depth);
+        }, 200);
+      });
     }
     
-    // Choose the move that gives the worst material evaluation for the engine.
-    function chooseLosingMove() {
+    // This function uses Stockfish to evaluate every legal move and then chooses the move that gives
+    // the worst outcome for the engine (i.e. highest evaluation for White when engine is Black).
+    function chooseWorstMoveUsingStockfish() {
       var moves = game.moves({ verbose: true });
-      if (moves.length === 0) return null;
-      var worstMove = null;
-      var worstScore = Infinity;
-      // In these single‑player modes, the engine is the non‑human (human is white by default).
-      var engineColor = (humanColor === 'w') ? 'b' : 'w';
-      for (var i = 0; i < moves.length; i++) {
-        var move = moves[i];
-        // Clone the current game state.
+      if (moves.length === 0) return Promise.resolve(null);
+      // Evaluate each move concurrently.
+      var evaluations = moves.map(function(move) {
         var clone = new Chess(game.fen());
         clone.move(move);
-        var score = evaluateBoardForColor(clone, engineColor);
-        // For engine trying to lose, choose the move that results in the lowest score.
-        if (score < worstScore) {
-          worstScore = score;
-          worstMove = move;
-        }
-      }
-      return worstMove;
+        return evaluateMoveWithStockfish(clone.fen(), 12).then(function(evalScore) {
+          return { move: move, evalScore: evalScore };
+        });
+      });
+      return Promise.all(evaluations).then(function(results) {
+        // In our scenario, human is white so engine is black.  A higher score (more positive for white)
+        // means a worse move for Black.
+        var worstMoveObject = results.reduce(function(acc, cur) {
+          return (cur.evalScore > acc.evalScore) ? cur : acc;
+        }, results[0]);
+        return worstMoveObject.move;
+      });
     }
     
     /* ----------------------- Engine vs Engine Mode ----------------------- */
@@ -369,7 +349,6 @@
     var stockfishBlack = null;
     
     function initEngineVsEngine() {
-      // If a single-engine worker exists, terminate it.
       if (stockfish) {
         stockfish.terminate();
         stockfish = null;
@@ -383,10 +362,10 @@
         stockfishWhite = new Worker('stockfish.js');
         stockfishWhite.onmessage = function(e) {
           var msg = e.data;
-          if (msg.indexOf("bestmove") === 0) {
+          if (msg.indexOf("bestmove") === 0 && game.turn() === 'w') {
             var tokens = msg.split(" ");
             var bestMove = tokens[1];
-            if (bestMove && bestMove !== "(none)" && game.turn() === 'w') {
+            if (bestMove && bestMove !== "(none)") {
               game.move({
                 from: bestMove.substring(0,2),
                 to: bestMove.substring(2,4),
@@ -408,10 +387,10 @@
         stockfishBlack = new Worker('stockfish.js');
         stockfishBlack.onmessage = function(e) {
           var msg = e.data;
-          if (msg.indexOf("bestmove") === 0) {
+          if (msg.indexOf("bestmove") === 0 && game.turn() === 'b') {
             var tokens = msg.split(" ");
             var bestMove = tokens[1];
-            if (bestMove && bestMove !== "(none)" && game.turn() === 'b') {
+            if (bestMove && bestMove !== "(none)") {
               game.move({
                 from: bestMove.substring(0,2),
                 to: bestMove.substring(2,4),
@@ -455,10 +434,9 @@
       }
     }
     
-    /* ----------------------- UI Mode Handling ----------------------- */
+    /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
     document.getElementById("modeSelect").addEventListener("change", function(e) {
       currentMode = e.target.value;
-      // Show/hide difficulty selectors based on mode.
       if (currentMode === "stockfish") {
         isSinglePlayerMode = true;
         humanColor = 'w';
@@ -475,7 +453,7 @@
         document.getElementById("single-difficulty").style.display = "none";
         document.getElementById("engine-levels").style.display = "inline";
         initEngineVsEngine();
-      } else { // Two Player
+      } else { // Two Player Mode
         isSinglePlayerMode = false;
         humanColor = null;
         document.getElementById("single-difficulty").style.display = "none";
@@ -484,34 +462,24 @@
       resetGame();
     });
     
-    // Update difficulty for engine vs engine when selectors change.
     document.getElementById("whiteDifficultySelect").addEventListener("change", function(){
-      if (currentMode === "enginevengine" && stockfishWhite) {
-        updateEngineDifficulty('w');
-      }
+      if (currentMode === "enginevengine" && stockfishWhite) { updateEngineDifficulty('w'); }
     });
     document.getElementById("blackDifficultySelect").addEventListener("change", function(){
-      if (currentMode === "enginevengine" && stockfishBlack) {
-        updateEngineDifficulty('b');
-      }
+      if (currentMode === "enginevengine" && stockfishBlack) { updateEngineDifficulty('b'); }
     });
     
-    /* ----------------------- Game Reset ----------------------- */
     function resetGame() {
       game.reset();
       selectedSquare = null;
       drawBoard();
-      // In engine vs engine mode, restart auto play.
       if (currentMode === "enginevengine") {
         setTimeout(autoPlayEngineVsEngine, 250);
       }
     }
     
-    document.getElementById("resetButton").addEventListener("click", function() {
-      resetGame();
-    });
+    document.getElementById("resetButton").addEventListener("click", resetGame);
     
-    // Initialize the board on load.
     createBoard();
     drawBoard();
   </script>
