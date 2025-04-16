@@ -32,11 +32,12 @@
       <option value="enginevengine">Engine vs Engine</option>
     </select>
 
-    <!-- Single Engine Difficulty (for standard single-player) -->
+    <!-- Single Player Difficulty (for standard single-player) -->
     <span id="single-difficulty" style="display:none;">
       <label for="difficultySelect">Difficulty:</label>
       <select id="difficultySelect">
-        <!-- Stockfish Skill Level: 0 (weakest) to 20 (strongest) -->
+        <!-- Stockfish Skill Level: 0 (weakest) to 20 (strongest) plus a special -1 option -->
+        <option value="-1">-1</option>
         <option value="0">0 (Weakest)</option>
         <option value="1">1</option>
         <option value="2">2</option>
@@ -58,10 +59,11 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20 (Strongest)</option>
+        <option value="100">a lot (SUPER slow)</option>
       </select>
     </span>
 
-    <!-- Losing Mode Depth Selector -->
+    <!-- Losing Mode Depth Selector (only shown in pure Losing Mode) -->
     <span id="losing-depth" style="display:none;">
       <label for="losingDepthSelect">Losing Depth:</label>
       <select id="losingDepthSelect">
@@ -85,6 +87,7 @@
          <option value="18">18</option>
          <option value="19">19</option>
          <option value="20">20</option>
+        <option value="100">a lot (SUPER slow)</option>
       </select>
     </span>
 
@@ -92,6 +95,8 @@
     <span id="engine-levels" style="display:none;">
       <label for="whiteDifficultySelect">White Skill:</label>
       <select id="whiteDifficultySelect">
+        <!-- Include a -1 option to trigger worst-move search -->
+        <option value="-1">-1</option>
         <option value="0">0</option>
         <option value="1">1</option>
         <option value="2">2</option>
@@ -113,10 +118,13 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20</option>
+        <option value="100">a lot (SUPER slow)</option>
       </select>
 
       <label for="blackDifficultySelect">Black Skill:</label>
       <select id="blackDifficultySelect">
+        <!-- Include a -1 option to trigger worst-move search -->
+        <option value="-1">-1</option>
         <option value="0">0</option>
         <option value="1">1</option>
         <option value="2">2</option>
@@ -138,6 +146,7 @@
         <option value="18">18</option>
         <option value="19">19</option>
         <option value="20">20</option>
+        <option value="100">a lot (SUPER slow)</option>
       </select>
     </span>
   </div>
@@ -252,17 +261,27 @@
         }
         selectedSquare = null;
         drawBoard();
-        // After a human move, if in single‑player mode, let the engine move.
+        // After a human move in a single‑player mode:
         if ((currentMode === "stockfish" || currentMode === "losing") && game.turn() !== humanColor && !game.game_over()) {
           if (currentMode === "stockfish") {
-            setTimeout(function() { askEngineForMove(game.fen()); }, 250);
+            // Check the selected difficulty.
+            var diff = parseInt(document.getElementById("difficultySelect").value, 10);
+            if (diff === -1) {
+              // Use worst-move search at depth 20.
+              setTimeout(function() {
+                chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
+                  if (engineMove) { game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' }); }
+                  drawBoard();
+                });
+              }, 250);
+            } else {
+              setTimeout(function() { askEngineForMove(game.fen()); }, 250);
+            }
           } else if (currentMode === "losing") {
-            // Use Stockfish at full strength to choose the worst move, at the selected depth.
+            // Losing mode always uses the losing-depth selector.
             setTimeout(function() {
               chooseWorstMoveUsingStockfish().then(function(engineMove) {
-                if (engineMove) {
-                  game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
-                }
+                if (engineMove) { game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' }); }
                 drawBoard();
               });
             }, 250);
@@ -318,7 +337,7 @@
     }
     
     /* ----------------------- Losing Mode Using Stockfish ----------------------- */
-    // Evaluate a position using a temporary Stockfish worker.
+    // Evaluate a given position using a temporary Stockfish worker.
     function evaluateMoveWithStockfish(fen, depth = 12) {
       return new Promise(function(resolve, reject) {
         var worker = new Worker('stockfish.js');
@@ -327,9 +346,7 @@
           var line = e.data;
           if (line.indexOf("info") !== -1 && line.indexOf("score cp") !== -1) {
             var scoreMatch = line.match(/score cp (-?\d+)/);
-            if (scoreMatch) {
-              evaluationScore = parseInt(scoreMatch[1], 10);
-            }
+            if (scoreMatch) { evaluationScore = parseInt(scoreMatch[1], 10); }
           }
           if (line.indexOf("bestmove") === 0) {
             worker.terminate();
@@ -344,16 +361,17 @@
       });
     }
     
-    // Use Stockfish to evaluate every legal move and choose the worst move (from the engine’s perspective).
-    function chooseWorstMoveUsingStockfish() {
+    // Modified to optionally accept a custom depth parameter.
+    function chooseWorstMoveUsingStockfish(customDepth) {
       var moves = game.moves({ verbose: true });
       if (moves.length === 0) return Promise.resolve(null);
-      // Read the desired depth from the losing mode depth selector.
-      var losingDepth = parseInt(document.getElementById("losingDepthSelect").value, 12);
+      var depth = (typeof customDepth !== 'undefined')
+                  ? customDepth
+                  : parseInt(document.getElementById("losingDepthSelect").value, 10);
       var evaluations = moves.map(function(move) {
          var clone = new Chess(game.fen());
          clone.move(move);
-         return evaluateMoveWithStockfish(clone.fen(), losingDepth).then(function(evalScore) {
+         return evaluateMoveWithStockfish(clone.fen(), depth).then(function(evalScore) {
               return { move: move, evalScore: evalScore };
          });
       });
@@ -370,10 +388,7 @@
     var stockfishBlack = null;
     
     function initEngineVsEngine() {
-      if (stockfish) {
-        stockfish.terminate();
-        stockfish = null;
-      }
+      if (stockfish) { stockfish.terminate(); stockfish = null; }
       if (typeof(Worker) === "undefined") {
         console.error("Your browser does not support Web Workers.");
         return;
@@ -441,17 +456,36 @@
     }
     
     function autoPlayEngineVsEngine() {
-      if (game.game_over()) {
-        updateStatus();
-        return;
-      }
+      if (game.game_over()) { updateStatus(); return; }
       var fen = game.fen();
       if (game.turn() === 'w') {
-        stockfishWhite.postMessage("position fen " + fen);
-        stockfishWhite.postMessage("go movetime 500");
+        var whiteDiff = parseInt(document.getElementById("whiteDifficultySelect").value, 10);
+        if (whiteDiff === -1) {
+          chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
+            if (engineMove) {
+              game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
+            }
+            drawBoard();
+            setTimeout(autoPlayEngineVsEngine, 250);
+          });
+        } else {
+          stockfishWhite.postMessage("position fen " + fen);
+          stockfishWhite.postMessage("go movetime 500");
+        }
       } else if (game.turn() === 'b') {
-        stockfishBlack.postMessage("position fen " + fen);
-        stockfishBlack.postMessage("go movetime 500");
+        var blackDiff = parseInt(document.getElementById("blackDifficultySelect").value, 10);
+        if (blackDiff === -1) {
+          chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
+            if (engineMove) {
+              game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' });
+            }
+            drawBoard();
+            setTimeout(autoPlayEngineVsEngine, 250);
+          });
+        } else {
+          stockfishBlack.postMessage("position fen " + fen);
+          stockfishBlack.postMessage("go movetime 500");
+        }
       }
     }
     
