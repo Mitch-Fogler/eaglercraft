@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mitch's Sigma Chess</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    h1 { margin-bottom: 10px; }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; margin-bottom: 10px; }
+    #game-options { text-align: center; margin-bottom: 10px; }
     #game-options label,
     #game-options select,
     #game-options input { font-size: 16px; margin-right: 10px; }
@@ -24,11 +25,25 @@
     .dark { background-color: #b58863; }
     .light { background-color: #f0d9b5; }
     .selected { outline: 3px solid red; }
-    #status { margin-top: 15px; font-size: 20px; }
+    #status { margin-top: 15px; font-size: 20px; text-align: center; }
     #resetButton, #startEngineVsEngine, #finishSetupButton { margin-top: 10px; padding: 5px 15px; font-size: 16px; }
     #version { font-size: 10px; text-align: center; margin-top: 10px; }
-    /* Initially hide these extra controls */
+    /* Extra controls */
     #losing-depth, #engine-levels, #single-difficulty, #worst-depth-control, #setup-controls { display: none; }
+    /* Piece palette for setup mode */
+    #piece-palette {
+      display: none;
+      position: relative;
+      margin: 10px auto;
+      width: 600px;
+      text-align: center;
+    }
+    #piece-palette button {
+      font-size: 24px;
+      margin: 2px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -162,9 +177,9 @@
       <input type="number" id="worstDepthInput" min="1" max="20" value="10" />
     </span>
 
-    <!-- Setup Position Controls (for board setup; not playable) -->
+    <!-- Setup Position Controls (for board setup) -->
     <span id="setup-controls">
-      <div>Setup Position (click squares to cycle pieces):</div>
+      <div>Setup Position (select a piece from the palette, then click a square):</div>
       <label for="turnSelect">Turn:</label>
       <select id="turnSelect">
         <option value="w" selected>White to move</option>
@@ -172,6 +187,11 @@
       </select>
       <button id="finishSetupButton">Finish Setup</button>
     </span>
+  </div>
+
+  <!-- Piece Palette for Setup Mode -->
+  <div id="piece-palette">
+    <!-- This palette will be populated when in setup mode -->
   </div>
 
   <!-- Engine vs Engine Start Button (only for that mode) -->
@@ -196,10 +216,11 @@
     var currentMode = "twoplayer";  // Modes: 'twoplayer', 'stockfish', 'losing', 'enginevengine', 'setup'
     var humanColor = 'w';           // In single-player modes, human plays white
     var files = ['a','b','c','d','e','f','g','h'];
-    var customFEN = null;           // To store a custom position FEN from setup mode
+    var customFEN = null;           // Stores custom position from setup mode
 
-    // For setup mode, we use a boardSetup dictionary. Keys are square IDs, values are piece codes (e.g., "wp", "bk", or empty string).
-    var boardSetup = {};
+    // For setup mode
+    var boardSetup = {};            // Object to hold piece codes for squares
+    var selectedPalettePiece = "";  // Global holding the currently selected piece from the palette
 
     /* ----------------------- Board Rendering ----------------------- */
     function createBoard() {
@@ -236,7 +257,7 @@
       updateStatus();
     }
 
-    // In setup mode we draw from our boardSetup dictionary.
+    // When in setup mode, draw from boardSetup
     function drawSetupBoard() {
       for (var i = 0; i < 8; i++) {
         var rank = 8 - i;
@@ -249,7 +270,7 @@
       }
     }
 
-    // Map chess pieces to Unicode symbols.
+    // Map piece codes to Unicode. Piece codes are e.g. "wp" (white pawn), "bk" (black king)
     function getUnicode(piece) {
       var unicode = {
         'p': {'w': '♙', 'b': '♟'},
@@ -276,44 +297,58 @@
       statusDiv.textContent = status;
     }
 
-    /* ----------------------- Helper Functions for Promotion ----------------------- */
-    function getEnginePromotionMove(fen, from, to) {
-      var promotions = ['q', 'r', 'b', 'n'];
-      for (var i = 0; i < promotions.length; i++) {
-        var promo = promotions[i];
-        var clone = new Chess(fen);
-        var move = clone.move({ from: from, to: to, promotion: promo });
-        if (move && !clone.in_draw()) {
-          return { from: from, to: to, promotion: promo };
-        }
-      }
-      return { from: from, to: to, promotion: 'q' };
+    /* ----------------------- Piece Palette in Setup Mode ----------------------- */
+    // Populate the piece palette with buttons for each piece option.
+    function createPiecePalette() {
+      var paletteDiv = document.getElementById("piece-palette");
+      // Define the palette options. The 'code' field is the piece code, empty string means clear.
+      var palette = [
+        { label: "Clear", code: "" },
+        { label: "♙", code: "wp" },
+        { label: "♘", code: "wn" },
+        { label: "♗", code: "wb" },
+        { label: "♖", code: "wr" },
+        { label: "♕", code: "wq" },
+        { label: "♔", code: "wk" },
+        { label: "♟", code: "bp" },
+        { label: "♞", code: "bn" },
+        { label: "♝", code: "bb" },
+        { label: "♜", code: "br" },
+        { label: "♛", code: "bq" },
+        { label: "♚", code: "bk" }
+      ];
+      var html = "";
+      palette.forEach(function(item) {
+        html += '<button type="button" onclick="selectPalettePiece(\'' + item.code + '\')">' + item.label + "</button>";
+      });
+      paletteDiv.innerHTML = html;
     }
-
-    function fixEnginePromotion(bestMove, currentFen) {
-      var from = bestMove.substring(0, 2);
-      var to = bestMove.substring(2, 4);
-      if (bestMove.length === 5) {
-        var promo = bestMove[4];
-        var clone = new Chess(currentFen);
-        clone.move({ from: from, to: to, promotion: promo });
-        if (clone.in_draw()) {
-          return getEnginePromotionMove(currentFen, from, to);
-        } else {
-          return { from: from, to: to, promotion: promo };
+    // Called when a palette button is clicked.
+    function selectPalettePiece(code) {
+      selectedPalettePiece = code;
+      // Highlight the selected button visually (for simplicity, we reload the palette highlighting)
+      var buttons = document.getElementById("piece-palette").getElementsByTagName("button");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].style.border = "";
+        // If the button's innerText corresponds to the selected code, highlight it.
+        // For the clear option, we check if code is empty.
+        if ((selectedPalettePiece === "" && buttons[i].innerText === "Clear") ||
+            (selectedPalettePiece !== "" && buttons[i].innerText === getUnicode({ type: selectedPalettePiece.substring(1), color: selectedPalettePiece[0] }))) {
+          buttons[i].style.border = "2px solid red";
         }
       }
-      return { from: from, to: to };
     }
 
     /* ----------------------- Move Handling ----------------------- */
     function onCellClick(e) {
-      // In setup mode, use the board editor instead of making moves.
+      // In setup mode, use the palette to set pieces.
       if (currentMode === "setup") {
-        setupSquareClicked(e);
+        var square = e.currentTarget.id;
+        boardSetup[square] = selectedPalettePiece; // set (or clear if empty)
+        drawSetupBoard();
         return;
       }
-      // Otherwise, handle moves normally:
+      // For other modes, handle moves normally.
       if (currentMode === "enginevengine") return;
       var square = e.currentTarget.id;
       if (!selectedSquare) {
@@ -372,19 +407,19 @@
     }
 
     /* ----------------------- Setup Mode Functions ----------------------- */
-    // Called when in setup mode: cycles through pieces on the clicked square.
-    function setupSquareClicked(e) {
-      var square = e.currentTarget.id;
-      var cycle = ["", "wp", "wn", "wb", "wr", "wq", "wk", "bp", "bn", "bb", "br", "bq", "bk"];
-      var current = boardSetup[square] || "";
-      var index = cycle.indexOf(current);
-      if (index === -1) { index = 0; }
-      var next = cycle[(index + 1) % cycle.length];
-      boardSetup[square] = next;
+    // Initialize an empty board for setup.
+    function initializeSetupBoard() {
+      boardSetup = {}; // Clear any previous setup.
+      // Optionally, fill with empty strings for all squares.
+      for (var i = 0; i < 8; i++) {
+        var rank = 8 - i;
+        for (var j = 0; j < 8; j++) {
+          boardSetup[files[j] + rank] = "";
+        }
+      }
       drawSetupBoard();
     }
 
-    // Generates FEN from boardSetup and loads it.
     function finishSetup() {
       var turn = document.getElementById("turnSelect").value;
       var fenParts = [];
@@ -397,14 +432,9 @@
           if (!piece) {
             emptyCount++;
           } else {
-            if (emptyCount > 0) {
-              rankStr += emptyCount;
-              emptyCount = 0;
-            }
-            // Map piece code to FEN symbol (white uppercase, black lowercase)
+            if (emptyCount > 0) { rankStr += emptyCount; emptyCount = 0; }
             var letter = piece.substring(1);
-            if (piece[0] === 'w') { letter = letter.toUpperCase(); }
-            else { letter = letter.toLowerCase(); }
+            letter = (piece[0] === 'w') ? letter.toUpperCase() : letter.toLowerCase();
             rankStr += letter;
           }
         }
@@ -416,10 +446,10 @@
       customFEN = fen;
       game.load(customFEN);
       drawBoard();
-      alert("Custom position applied. Now switch mode to play.");
+      alert("Custom position applied. Now switch mode to play with this position.");
     }
 
-    /* ----------------------- Standard Stockfish Functions ----------------------- */
+    /* ----------------------- Stockfish Functions (Standard, Losing, E-v-E) ----------------------- */
     function initStockfish() {
       if (typeof(Worker) === "undefined") { console.error("Your browser does not support Web Workers."); return; }
       if (!stockfish) {
@@ -439,7 +469,9 @@
         };
         stockfish.postMessage("uci");
         setTimeout(updateSingleEngineDifficulty, 500);
-      } else { updateSingleEngineDifficulty(); }
+      } else {
+        updateSingleEngineDifficulty();
+      }
     }
 
     function updateSingleEngineDifficulty() {
@@ -454,7 +486,6 @@
       stockfish.postMessage("go movetime 500");
     }
 
-    /* ----------------------- Losing Mode Using Stockfish ----------------------- */
     function evaluateMoveWithStockfish(fen, depth = 12) {
       return new Promise(function(resolve, reject) {
         var worker = new Worker('stockfish.js');
@@ -481,7 +512,9 @@
     function chooseWorstMoveUsingStockfish(customDepth) {
       var moves = game.moves({ verbose: true });
       if (moves.length === 0) return Promise.resolve(null);
-      var depth = (typeof customDepth !== 'undefined') ? customDepth : parseInt(document.getElementById("losingDepthSelect").value, 10);
+      var depth = (typeof customDepth !== 'undefined')
+                  ? customDepth
+                  : parseInt(document.getElementById("losingDepthSelect").value, 10);
       var evaluations = moves.map(function(move) {
          var clone = new Chess(game.fen());
          clone.move(move);
@@ -497,11 +530,10 @@
       });
     }
 
-    /* ----------------------- Engine vs Engine Functions ----------------------- */
     function initEngineVsEngine() {
       if (stockfish) { stockfish.terminate(); stockfish = null; }
       if (typeof(Worker) === "undefined") { console.error("Your browser does not support Web Workers."); return; }
-      // Initialize for White.
+      // For White:
       if (!stockfishWhite) {
         stockfishWhite = new Worker('stockfish.js');
         stockfishWhite.onmessage = function(e) {
@@ -520,8 +552,7 @@
         stockfishWhite.postMessage("uci");
         setTimeout(function(){ updateEngineDifficulty('w'); },500);
       } else { updateEngineDifficulty('w'); }
-
-      // Initialize for Black.
+      // For Black:
       if (!stockfishBlack) {
         stockfishBlack = new Worker('stockfish.js');
         stockfishBlack.onmessage = function(e) {
@@ -585,47 +616,6 @@
       }
     }
 
-    /* ----------------------- Setup Mode Handling ----------------------- */
-    // In setup mode, clicking cycles through pieces.
-    // (This function is called by onCellClick when currentMode === "setup")
-    // Global boardSetup object holds piece codes for squares.
-    function initializeSetupBoard() {
-      boardSetup = {}; // start with an empty board
-      drawSetupBoard();
-    }
-
-    function finishSetup() {
-      var turn = document.getElementById("turnSelect").value;
-      var fenParts = [];
-      for (var rank = 8; rank >= 1; rank--) {
-        var rankStr = "";
-        var emptyCount = 0;
-        for (var i = 0; i < 8; i++) {
-          var square = files[i] + rank;
-          var piece = boardSetup[square] || "";
-          if (!piece) {
-            emptyCount++;
-          } else {
-            if (emptyCount > 0) {
-              rankStr += emptyCount;
-              emptyCount = 0;
-            }
-            var letter = piece.substring(1);
-            letter = (piece[0] === 'w') ? letter.toUpperCase() : letter.toLowerCase();
-            rankStr += letter;
-          }
-        }
-        if (emptyCount > 0) { rankStr += emptyCount; }
-        fenParts.push(rankStr);
-      }
-      var piecePlacement = fenParts.join("/");
-      var fen = piecePlacement + " " + turn + " - - 0 1";
-      customFEN = fen;
-      game.load(customFEN);
-      drawBoard();
-      alert("Custom position applied. Now switch mode to play with this position.");
-    }
-
     /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
     function updateUI() {
       var mode = document.getElementById("modeSelect").value;
@@ -636,14 +626,16 @@
       document.getElementById("setup-controls").style.display = (mode === "setup") ? "inline" : "none";
       document.getElementById("startEngineVsEngine").style.display = (mode === "enginevengine") ? "inline-block" : "none";
       updateWorstDepthControlVisibility();
-      // If switching away from setup mode and a custom position has been set, load it.
+      // Show piece palette only in setup mode.
+      document.getElementById("piece-palette").style.display = (mode === "setup") ? "block" : "none";
+      if (mode === "setup") {
+        initializeSetupBoard();
+        createPiecePalette();
+      }
+      // If switching away from setup and a custom position has been applied, load it.
       if (mode !== "setup" && customFEN) {
         game.load(customFEN);
         drawBoard();
-      }
-      // If entering setup mode, initialize the editable board.
-      if (mode === "setup") {
-        initializeSetupBoard();
       }
     }
 
@@ -672,6 +664,7 @@
     document.getElementById("startEngineVsEngine").addEventListener("click", function() {
       initEngineVsEngine();
     });
+    document.getElementById("resetButton").addEventListener("click", resetGame);
 
     function resetGame() {
       game.reset();
@@ -681,8 +674,6 @@
         setTimeout(autoPlayEngineVsEngine, 250);
       }
     }
-
-    document.getElementById("resetButton").addEventListener("click", resetGame);
 
     // Initialize board and UI on load.
     createBoard();
