@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Over the Board Chess Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    #chessboard {
+      margin: 0 auto;
+      display: inline-block;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    td {
+      width: 60px;
+      height: 60px;
+      vertical-align: middle;
+      text-align: center;
+      font-size: 42px;
+      cursor: pointer;
+      user-select: none;
+    }
+    /* Standard chessboard colors – a8 is dark */
+    .dark {
+      background-color: #b58863;
+    }
+    .light {
+      background-color: #f0d9b5;
+    }
+    /* Highlight a selected square */
+    .selected {
+      outline: 3px solid red;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 20px;
+    }
+    #resetButton {
+      margin-top: 10px;
+      padding: 5px 15px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Over the Board Chess</h1>
+  <!-- Chessboard will be generated here -->
+  <div id="chessboard"></div>
+  
+  <!-- Status message -->
+  <div id="status"></div>
+  
+  <!-- Reset game button -->
+  <button id="resetButton">Reset Game</button>
+  
+  <!--
+    Stockfish Expansion Slot:
+    Later you can add code here to integrate Stockfish for single–player mode.
+    For example, you might load the Stockfish engine in a Web Worker.
+    DO NOT DO ANYTHING WITH IT NOW.
+  -->
+  
+  <!-- Include chess.js library from CDN for game rules and validation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script>
+    // Create a new chess game instance (Chess.js handles legal moves, turns, etc.)
+    var game = new Chess();
+    var selectedSquare = null; // For tracking the square from which a move is made
+    var boardDiv = document.getElementById("chessboard");
+    // Files (columns) are labeled from a to h
+    var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+
+    // Build the board as an 8x8 HTML table
+    function createBoard() {
+      var table = document.createElement("table");
+      for (var i = 0; i < 8; i++) {
+        var row = document.createElement("tr");
+        // Calculate the rank (rows are numbered 8 to 1; board[0] is rank 8)
+        var rank = 8 - i;
+        for (var j = 0; j < 8; j++) {
+          var cell = document.createElement("td");
+          var file = files[j];
+          var square = file + rank;
+          cell.id = square;
+          // Determine if the square is dark or light
+          // For standard chessboards, a8 (0+0 even) is dark.
+          cell.className = ((i + j) % 2 === 0) ? "dark" : "light";
+          // Add click event for move selection
+          cell.addEventListener("click", onCellClick);
+          row.appendChild(cell);
+        }
+        table.appendChild(row);
+      }
+      boardDiv.innerHTML = ""; // Clear any existing content
+      boardDiv.appendChild(table);
+    }
+
+    // Render the current game state on the board
+    function drawBoard() {
+      // game.board() returns an 8x8 array with rows from rank 8 to rank 1.
+      var boardState = game.board();
+      for (var i = 0; i < 8; i++) {
+        var rank = 8 - i; // Rank label (8 to 1)
+        for (var j = 0; j < 8; j++) {
+          var piece = boardState[i][j];
+          var file = files[j];
+          var square = file + rank;
+          var cell = document.getElementById(square);
+          // Place Unicode chess symbol or clear cell if empty
+          cell.innerHTML = piece ? getUnicode(piece) : "";
+          cell.classList.remove("selected");
+        }
+      }
+      updateStatus();
+    }
+
+    // Return the Unicode character for a given piece object from chess.js
+    function getUnicode(piece) {
+      var unicode = {
+        'p': { 'w': '♙', 'b': '♟' },
+        'r': { 'w': '♖', 'b': '♜' },
+        'n': { 'w': '♘', 'b': '♞' },
+        'b': { 'w': '♗', 'b': '♝' },
+        'q': { 'w': '♕', 'b': '♛' },
+        'k': { 'w': '♔', 'b': '♚' }
+      };
+      return unicode[piece.type][piece.color];
+    }
+
+    // Handle clicks on board cells: select a piece or attempt to move
+    function onCellClick(e) {
+      var square = e.currentTarget.id;
+      // If no square is selected, try to select a piece
+      if (!selectedSquare) {
+        var piece = game.get(square);
+        // Only select if there is a piece and it belongs to the player whose turn it is
+        if (piece && piece.color === game.turn()) {
+          selectedSquare = square;
+          e.currentTarget.classList.add("selected");
+        }
+      } else {
+        // If the same square is clicked again, deselect it
+        if (selectedSquare === square) {
+          e.currentTarget.classList.remove("selected");
+          selectedSquare = null;
+          return;
+        }
+        // Attempt to make the move; always promote to queen for simplicity
+        var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+        if (move === null) {
+          alert("Invalid move!");
+        }
+        selectedSquare = null;
+        drawBoard();
+      }
+    }
+
+    // Update the status div to show whose turn it is or if the game is over
+    function updateStatus() {
+      var statusDiv = document.getElementById("status");
+      var status = "";
+      if (game.in_checkmate()) {
+        status = "Game over: " + (game.turn() === 'w' ? "Black" : "White") + " wins by checkmate.";
+      } else if (game.in_draw()) {
+        status = "Game over: drawn position.";
+      } else {
+        status = (game.turn() === 'w' ? "White" : "Black") + " to move.";
+        if (game.in_check()) {
+          status += " Check!";
+        }
+      }
+      statusDiv.textContent = status;
+    }
+
+    // Reset the game to the starting position
+    document.getElementById("resetButton").addEventListener("click", function() {
+      game.reset();
+      selectedSquare = null;
+      drawBoard();
+    });
+
+    // Placeholder for Stockfish integration.
+    // Future single–player functionality can be added here.
+    function initStockfish() {
+      // Example: Setup a Web Worker with Stockfish and integrate engine moves.
+    }
+
+    // Initialize the board and render the starting position.
+    createBoard();
+    drawBoard();
+  </script>
+</body>
+</html>
