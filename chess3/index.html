@@ -25,8 +25,10 @@
     .light { background-color: #f0d9b5; }
     .selected { outline: 3px solid red; }
     #status { margin-top: 15px; font-size: 20px; }
-    #resetButton, #startEngineVsEngine { margin-top: 10px; padding: 5px 15px; font-size: 16px; }
+    #resetButton, #startEngineVsEngine, #applyPositionButton { margin-top: 10px; padding: 5px 15px; font-size: 16px; }
     #version { font-size: 10px; text-align: center; margin-top: 10px; }
+    /* Hide additional controls by default */
+    #losing-depth, #engine-levels, #single-difficulty, #worst-depth-control, #setup-controls { display: none; }
   </style>
 </head>
 <body>
@@ -40,13 +42,13 @@
       <option value="stockfish">Play Against Stockfish</option>
       <option value="losing">Losing Mode (Stockfish tries to lose)</option>
       <option value="enginevengine">Engine vs Engine</option>
+      <option value="setup">Setup Position</option>
     </select>
 
-    <!-- Single Player Difficulty -->
-    <span id="single-difficulty" style="display:none;">
+    <!-- Single Player Difficulty (for standard single-player) -->
+    <span id="single-difficulty">
       <label for="difficultySelect">Difficulty:</label>
       <select id="difficultySelect">
-        <!-- Include a -1 option for worst-move search -->
         <option value="-1">-1</option>
         <option value="0">0 (Weakest)</option>
         <option value="1">1</option>
@@ -72,8 +74,8 @@
       </select>
     </span>
 
-    <!-- Losing Mode Depth Selector (for pure Losing mode) -->
-    <span id="losing-depth" style="display:none;">
+    <!-- Losing Mode Depth Selector -->
+    <span id="losing-depth">
       <label for="losingDepthSelect">Losing Depth:</label>
       <select id="losingDepthSelect">
          <option value="1">1</option>
@@ -100,7 +102,7 @@
     </span>
 
     <!-- Engine vs Engine Difficulty selectors -->
-    <span id="engine-levels" style="display:none;">
+    <span id="engine-levels">
       <label for="whiteDifficultySelect">White Skill:</label>
       <select id="whiteDifficultySelect">
         <option value="-1">-1</option>
@@ -154,15 +156,27 @@
       </select>
     </span>
 
-    <!-- Worst Move Depth for -1 difficulties (common to stockfish and engine-vs-engine) -->
-    <span id="worst-depth-control" style="display:none;">
+    <!-- Worst Move Depth for -1 difficulties -->
+    <span id="worst-depth-control">
       <label for="worstDepthInput">Worst Move Depth (for -1):</label>
       <input type="number" id="worstDepthInput" min="1" max="20" value="10" />
     </span>
+
+    <!-- Setup Position Controls -->
+    <span id="setup-controls">
+      <label for="fenInput">FEN:</label>
+      <input type="text" id="fenInput" size="50" value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" />
+      <label for="turnSelect">Turn:</label>
+      <select id="turnSelect">
+        <option value="w" selected>White to move</option>
+        <option value="b">Black to move</option>
+      </select>
+      <button id="applyPositionButton">Apply Position</button>
+    </span>
   </div>
 
-  <!-- Engine vs Engine Start Button -->
-  <button id="startEngineVsEngine" style="display:none;">Start Engine vs Engine</button>
+  <!-- Engine vs Engine Start Button (only visible in Engine vs Engine mode) -->
+  <button id="startEngineVsEngine">Start Engine vs Engine</button>
 
   <!-- Chessboard and Status -->
   <div id="chessboard"></div>
@@ -170,7 +184,7 @@
   <button id="resetButton">Reset Game</button>
 
   <!-- Version Number -->
-  <div id="version">Version: 1.0</div>
+  <div id="version">v.1.8</div>
 
   <!-- Include chess.js via CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
@@ -179,15 +193,15 @@
     var game = new Chess();
     var selectedSquare = null;
     var boardDiv = document.getElementById("chessboard");
-    var isSinglePlayerMode = false; // true when human plays against engine.
-    var currentMode = "twoplayer"; // Modes: 'twoplayer', 'stockfish', 'losing', 'enginevengine'
-    var humanColor = 'w'; // In single-player modes, human plays white.
+    var isSinglePlayerMode = false; // true when a human plays against the engine
+    var currentMode = "twoplayer";  // Modes: 'twoplayer', 'stockfish', 'losing', 'enginevengine', 'setup'
+    var humanColor = 'w';           // In single-player modes, human plays white
     var files = ['a','b','c','d','e','f','g','h'];
 
     // Stockfish Workers for single-player and engine-vs-engine modes
-    var stockfish = null;          // For standard single-player mode.
-    var stockfishWhite = null;     // For engine-vs-engine mode, white engine.
-    var stockfishBlack = null;     // For engine-vs-engine mode, black engine.
+    var stockfish = null;      // For standard single-player mode
+    var stockfishWhite = null; // For engine-vs-engine, white engine
+    var stockfishBlack = null; // For engine-vs-engine, black engine
 
     /* ----------------------- Board Rendering ----------------------- */
     function createBoard() {
@@ -266,10 +280,10 @@
       return { from: from, to: to, promotion: 'q' };
     }
 
-    // Given an engine bestmove string and current FEN, adjust promotion if needed.
+    // Adjust engine move promotions if necessary.
     function fixEnginePromotion(bestMove, currentFen) {
-      var from = bestMove.substring(0,2);
-      var to = bestMove.substring(2,4);
+      var from = bestMove.substring(0, 2);
+      var to = bestMove.substring(2, 4);
       if (bestMove.length === 5) {
         var promo = bestMove[4];
         var clone = new Chess(currentFen);
@@ -315,7 +329,8 @@
         if (move === null) { alert("Invalid move!"); }
         selectedSquare = null;
         drawBoard();
-        // After a human move in single-player modes:
+
+        // After a human move in modes that involve engine response:
         if ((currentMode === "stockfish" || currentMode === "losing") &&
             game.turn() !== humanColor && !game.game_over()) {
           if (currentMode === "stockfish") {
@@ -404,7 +419,7 @@
       });
     }
 
-    // Accept an optional customDepth parameter.
+    // Accept optional custom depth parameter.
     function chooseWorstMoveUsingStockfish(customDepth) {
       var moves = game.moves({ verbose: true });
       if (moves.length === 0) return Promise.resolve(null);
@@ -428,7 +443,6 @@
 
     /* ----------------------- Engine vs Engine Mode ----------------------- */
     function initEngineVsEngine() {
-      // Terminate any standard stockfish worker.
       if (stockfish) { stockfish.terminate(); stockfish = null; }
       if (typeof(Worker) === "undefined") { console.error("Your browser does not support Web Workers."); return; }
       // Initialize Stockfish for White.
@@ -515,17 +529,36 @@
       }
     }
 
+    /* ----------------------- Custom Setup Mode ----------------------- */
+    function applyCustomPosition() {
+      var fenInput = document.getElementById("fenInput").value.trim();
+      var turnSelect = document.getElementById("turnSelect").value;
+      if (!fenInput) { alert("Please enter a valid FEN."); return; }
+      // Adjust the FEN's turn field: FEN has six fields separated by spaces.
+      var parts = fenInput.split(" ");
+      if (parts.length < 6) {
+        alert("FEN must have 6 fields.");
+        return;
+      }
+      parts[1] = turnSelect;  // Override turn with user's choice.
+      var adjustedFen = parts.join(" ");
+      var loaded = game.load(adjustedFen);
+      if (!loaded) {
+        alert("Invalid FEN provided.");
+      }
+      drawBoard();
+    }
+
     /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
     function updateUI() {
       var mode = document.getElementById("modeSelect").value;
       currentMode = mode;
-      // Show/hide appropriate difficulty controls.
+      // Show/hide controls based on mode.
       document.getElementById("single-difficulty").style.display = (mode === "stockfish") ? "inline" : "none";
       document.getElementById("losing-depth").style.display = (mode === "losing") ? "inline" : "none";
       document.getElementById("engine-levels").style.display = (mode === "enginevengine") ? "inline" : "none";
-      // Show start button only for engine vs engine.
+      document.getElementById("setup-controls").style.display = (mode === "setup") ? "inline" : "none";
       document.getElementById("startEngineVsEngine").style.display = (mode === "enginevengine") ? "inline-block" : "none";
-      // Also, update worst-depth control visibility.
       updateWorstDepthControlVisibility();
     }
 
@@ -543,14 +576,14 @@
       document.getElementById("worst-depth-control").style.display = show ? "inline" : "none";
     }
 
-    document.getElementById("modeSelect").addEventListener("change", function(e) {
+    document.getElementById("modeSelect").addEventListener("change", function() {
       updateUI();
       resetGame();
     });
     document.getElementById("difficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
     document.getElementById("whiteDifficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
     document.getElementById("blackDifficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
-
+    document.getElementById("applyPositionButton").addEventListener("click", applyCustomPosition);
     document.getElementById("startEngineVsEngine").addEventListener("click", function() {
       initEngineVsEngine();
     });
@@ -559,8 +592,8 @@
       game.reset();
       selectedSquare = null;
       drawBoard();
-      if (currentMode !== "enginevengine") {
-        // For other modes, we auto-play engine moves immediately.
+      if (currentMode !== "setup" && currentMode === "enginevengine") {
+        setTimeout(autoPlayEngineVsEngine, 250);
       }
     }
 
