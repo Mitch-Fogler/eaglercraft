@@ -61,6 +61,33 @@
       </select>
     </span>
 
+    <!-- Losing Mode Depth Selector -->
+    <span id="losing-depth" style="display:none;">
+      <label for="losingDepthSelect">Losing Depth:</label>
+      <select id="losingDepthSelect">
+         <option value="1">1</option>
+         <option value="2">2</option>
+         <option value="3">3</option>
+         <option value="4">4</option>
+         <option value="5">5</option>
+         <option value="6">6</option>
+         <option value="7">7</option>
+         <option value="8">8</option>
+         <option value="9">9</option>
+         <option value="10" selected>10</option>
+         <option value="11">11</option>
+         <option value="12">12</option>
+         <option value="13">13</option>
+         <option value="14">14</option>
+         <option value="15">15</option>
+         <option value="16">16</option>
+         <option value="17">17</option>
+         <option value="18">18</option>
+         <option value="19">19</option>
+         <option value="20">20</option>
+      </select>
+    </span>
+
     <!-- Engine vs Engine Difficulty selectors -->
     <span id="engine-levels" style="display:none;">
       <label for="whiteDifficultySelect">White Skill:</label>
@@ -199,7 +226,7 @@
       }
       statusDiv.textContent = status;
     }
-
+    
     /* ----------------------- Move Handling ----------------------- */
     function onCellClick(e) {
       // In engine vs engine mode, disable human moves.
@@ -225,12 +252,12 @@
         }
         selectedSquare = null;
         drawBoard();
-        // After a human move, if in a single‑player mode, let the engine move.
+        // After a human move, if in single‑player mode, let the engine move.
         if ((currentMode === "stockfish" || currentMode === "losing") && game.turn() !== humanColor && !game.game_over()) {
           if (currentMode === "stockfish") {
             setTimeout(function() { askEngineForMove(game.fen()); }, 250);
           } else if (currentMode === "losing") {
-            // Use Stockfish at full strength to find the worst move.
+            // Use Stockfish at full strength to choose the worst move, at the selected depth.
             setTimeout(function() {
               chooseWorstMoveUsingStockfish().then(function(engineMove) {
                 if (engineMove) {
@@ -291,23 +318,19 @@
     }
     
     /* ----------------------- Losing Mode Using Stockfish ----------------------- */
-    // This function creates a new temporary Stockfish worker to evaluate a position.
-    // It sends the provided FEN to Stockfish, asks it to search to a given depth,
-    // and parses the evaluation (in centipawns) from the info lines.
+    // Evaluate a position using a temporary Stockfish worker.
     function evaluateMoveWithStockfish(fen, depth = 12) {
       return new Promise(function(resolve, reject) {
         var worker = new Worker('stockfish.js');
         var evaluationScore = null;
         worker.onmessage = function(e) {
           var line = e.data;
-          // Look for info lines containing "score cp"
           if (line.indexOf("info") !== -1 && line.indexOf("score cp") !== -1) {
             var scoreMatch = line.match(/score cp (-?\d+)/);
             if (scoreMatch) {
               evaluationScore = parseInt(scoreMatch[1], 10);
             }
           }
-          // When bestmove is received, resolve with the last score seen.
           if (line.indexOf("bestmove") === 0) {
             worker.terminate();
             resolve(evaluationScore);
@@ -321,26 +344,24 @@
       });
     }
     
-    // This function uses Stockfish to evaluate every legal move and then chooses the move that gives
-    // the worst outcome for the engine (i.e. highest evaluation for White when engine is Black).
+    // Use Stockfish to evaluate every legal move and choose the worst move (from the engine’s perspective).
     function chooseWorstMoveUsingStockfish() {
       var moves = game.moves({ verbose: true });
       if (moves.length === 0) return Promise.resolve(null);
-      // Evaluate each move concurrently.
+      // Read the desired depth from the losing mode depth selector.
+      var losingDepth = parseInt(document.getElementById("losingDepthSelect").value, 12);
       var evaluations = moves.map(function(move) {
-        var clone = new Chess(game.fen());
-        clone.move(move);
-        return evaluateMoveWithStockfish(clone.fen(), 12).then(function(evalScore) {
-          return { move: move, evalScore: evalScore };
-        });
+         var clone = new Chess(game.fen());
+         clone.move(move);
+         return evaluateMoveWithStockfish(clone.fen(), losingDepth).then(function(evalScore) {
+              return { move: move, evalScore: evalScore };
+         });
       });
       return Promise.all(evaluations).then(function(results) {
-        // In our scenario, human is white so engine is black.  A higher score (more positive for white)
-        // means a worse move for Black.
-        var worstMoveObject = results.reduce(function(acc, cur) {
-          return (cur.evalScore > acc.evalScore) ? cur : acc;
-        }, results[0]);
-        return worstMoveObject.move;
+         var worstMoveObject = results.reduce(function(acc, cur) {
+            return (cur.evalScore > acc.evalScore) ? cur : acc;
+         }, results[0]);
+         return worstMoveObject.move;
       });
     }
     
@@ -442,22 +463,26 @@
         humanColor = 'w';
         document.getElementById("single-difficulty").style.display = "inline";
         document.getElementById("engine-levels").style.display = "none";
+        document.getElementById("losing-depth").style.display = "none";
         initStockfish();
       } else if (currentMode === "losing") {
         isSinglePlayerMode = true;
         humanColor = 'w';
         document.getElementById("single-difficulty").style.display = "none";
         document.getElementById("engine-levels").style.display = "none";
+        document.getElementById("losing-depth").style.display = "inline";
       } else if (currentMode === "enginevengine") {
         isSinglePlayerMode = false;
         document.getElementById("single-difficulty").style.display = "none";
         document.getElementById("engine-levels").style.display = "inline";
+        document.getElementById("losing-depth").style.display = "none";
         initEngineVsEngine();
       } else { // Two Player Mode
         isSinglePlayerMode = false;
         humanColor = null;
         document.getElementById("single-difficulty").style.display = "none";
         document.getElementById("engine-levels").style.display = "none";
+        document.getElementById("losing-depth").style.display = "none";
       }
       resetGame();
     });
