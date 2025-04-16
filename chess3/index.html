@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Over the Board Chess Game</title>
+  <title>Over the Board Chess</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,6 +12,14 @@
     }
     h1 {
       margin-bottom: 10px;
+    }
+    #game-options {
+      margin-bottom: 15px;
+    }
+    #game-options label,
+    #game-options select {
+      font-size: 16px;
+      margin-right: 10px;
     }
     #chessboard {
       margin: 0 auto;
@@ -29,14 +37,12 @@
       cursor: pointer;
       user-select: none;
     }
-    /* Standard chessboard colors – a8 is dark */
     .dark {
       background-color: #b58863;
     }
     .light {
       background-color: #f0d9b5;
     }
-    /* Highlight a selected square */
     .selected {
       outline: 3px solid red;
     }
@@ -53,69 +59,88 @@
 </head>
 <body>
   <h1>Over the Board Chess</h1>
-  <!-- Chessboard will be generated here -->
-  <div id="chessboard"></div>
-  
-  <!-- Status message -->
-  <div id="status"></div>
-  
-  <!-- Reset game button -->
-  <button id="resetButton">Reset Game</button>
-  
-  <!--
-    Stockfish Expansion Slot:
-    Later you can add code here to integrate Stockfish for single–player mode.
-    For example, you might load the Stockfish engine in a Web Worker.
-    DO NOT DO ANYTHING WITH IT NOW.
-  -->
-  
-  <!-- Include chess.js library from CDN for game rules and validation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-  <script>
-    // Create a new chess game instance (Chess.js handles legal moves, turns, etc.)
-    var game = new Chess();
-    var selectedSquare = null; // For tracking the square from which a move is made
-    var boardDiv = document.getElementById("chessboard");
-    // Files (columns) are labeled from a to h
-    var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  <!-- Game Mode and Difficulty Selectors -->
+  <div id="game-options">
+    <label for="modeSelect">Game Mode:</label>
+    <select id="modeSelect">
+      <option value="twoplayer">Two Player</option>
+      <option value="stockfish">Play Against Stockfish</option>
+    </select>
+    <label for="difficultySelect">Difficulty:</label>
+    <select id="difficultySelect">
+      <!-- Stockfish typically supports Skill Level 0 (weakest) to 20 (strongest) -->
+      <option value="0">0 (Weakest)</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5" selected>5 (Medium)</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10 (Strong)</option>
+      <option value="11">11</option>
+      <option value="12">12</option>
+      <option value="13">13</option>
+      <option value="14">14</option>
+      <option value="15">15</option>
+      <option value="16">16</option>
+      <option value="17">17</option>
+      <option value="18">18</option>
+      <option value="19">19</option>
+      <option value="20">20 (Strongest)</option>
+    </select>
+  </div>
 
-    // Build the board as an 8x8 HTML table
+  <!-- Chessboard and status -->
+  <div id="chessboard"></div>
+  <div id="status"></div>
+  <button id="resetButton">Reset Game</button>
+
+  <!-- Include chess.js via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  
+  <script>
+    // Global variables
+    var game = new Chess();
+    var selectedSquare = null;
+    var boardDiv = document.getElementById("chessboard");
+    var isSinglePlayerMode = false; // false => two-player, true => playing against Stockfish
+    var stockfish; // Reference to our Stockfish web worker
+    var humanColor = 'w'; // In single-player mode, human plays white by default
+    var files = ['a','b','c','d','e','f','g','h'];
+
+    // Build the chessboard as an HTML table.
     function createBoard() {
       var table = document.createElement("table");
       for (var i = 0; i < 8; i++) {
         var row = document.createElement("tr");
-        // Calculate the rank (rows are numbered 8 to 1; board[0] is rank 8)
         var rank = 8 - i;
         for (var j = 0; j < 8; j++) {
           var cell = document.createElement("td");
           var file = files[j];
           var square = file + rank;
           cell.id = square;
-          // Determine if the square is dark or light
-          // For standard chessboards, a8 (0+0 even) is dark.
+          // Alternate colors (a8 is dark)
           cell.className = ((i + j) % 2 === 0) ? "dark" : "light";
-          // Add click event for move selection
           cell.addEventListener("click", onCellClick);
           row.appendChild(cell);
         }
         table.appendChild(row);
       }
-      boardDiv.innerHTML = ""; // Clear any existing content
+      boardDiv.innerHTML = "";
       boardDiv.appendChild(table);
     }
 
-    // Render the current game state on the board
+    // Render the current game state on the board.
     function drawBoard() {
-      // game.board() returns an 8x8 array with rows from rank 8 to rank 1.
       var boardState = game.board();
       for (var i = 0; i < 8; i++) {
-        var rank = 8 - i; // Rank label (8 to 1)
+        var rank = 8 - i;
         for (var j = 0; j < 8; j++) {
+          var cell = document.getElementById(files[j] + rank);
           var piece = boardState[i][j];
-          var file = files[j];
-          var square = file + rank;
-          var cell = document.getElementById(square);
-          // Place Unicode chess symbol or clear cell if empty
           cell.innerHTML = piece ? getUnicode(piece) : "";
           cell.classList.remove("selected");
         }
@@ -123,48 +148,20 @@
       updateStatus();
     }
 
-    // Return the Unicode character for a given piece object from chess.js
+    // Map piece objects to Unicode symbols.
     function getUnicode(piece) {
       var unicode = {
-        'p': { 'w': '♙', 'b': '♟' },
-        'r': { 'w': '♖', 'b': '♜' },
-        'n': { 'w': '♘', 'b': '♞' },
-        'b': { 'w': '♗', 'b': '♝' },
-        'q': { 'w': '♕', 'b': '♛' },
-        'k': { 'w': '♔', 'b': '♚' }
+        'p': {'w': '♙', 'b': '♟'},
+        'r': {'w': '♖', 'b': '♜'},
+        'n': {'w': '♘', 'b': '♞'},
+        'b': {'w': '♗', 'b': '♝'},
+        'q': {'w': '♕', 'b': '♛'},
+        'k': {'w': '♔', 'b': '♚'}
       };
       return unicode[piece.type][piece.color];
     }
 
-    // Handle clicks on board cells: select a piece or attempt to move
-    function onCellClick(e) {
-      var square = e.currentTarget.id;
-      // If no square is selected, try to select a piece
-      if (!selectedSquare) {
-        var piece = game.get(square);
-        // Only select if there is a piece and it belongs to the player whose turn it is
-        if (piece && piece.color === game.turn()) {
-          selectedSquare = square;
-          e.currentTarget.classList.add("selected");
-        }
-      } else {
-        // If the same square is clicked again, deselect it
-        if (selectedSquare === square) {
-          e.currentTarget.classList.remove("selected");
-          selectedSquare = null;
-          return;
-        }
-        // Attempt to make the move; always promote to queen for simplicity
-        var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
-        if (move === null) {
-          alert("Invalid move!");
-        }
-        selectedSquare = null;
-        drawBoard();
-      }
-    }
-
-    // Update the status div to show whose turn it is or if the game is over
+    // Update the status message.
     function updateStatus() {
       var statusDiv = document.getElementById("status");
       var status = "";
@@ -181,20 +178,127 @@
       statusDiv.textContent = status;
     }
 
-    // Reset the game to the starting position
-    document.getElementById("resetButton").addEventListener("click", function() {
+    // Handle clicks for making human moves.
+    function onCellClick(e) {
+      var square = e.currentTarget.id;
+      // When no square is selected, try to select a piece.
+      if (!selectedSquare) {
+        var piece = game.get(square);
+        if (piece && piece.color === game.turn()) {
+          // In single-player mode, only allow the human to move his own pieces.
+          if (isSinglePlayerMode && piece.color !== humanColor) return;
+          selectedSquare = square;
+          e.currentTarget.classList.add("selected");
+        }
+      } else {
+        // Deselect if the same square is clicked.
+        if (selectedSquare === square) {
+          e.currentTarget.classList.remove("selected");
+          selectedSquare = null;
+          return;
+        }
+        var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+        if (move === null) {
+          alert("Invalid move!");
+        }
+        selectedSquare = null;
+        drawBoard();
+        // In single-player mode, trigger the engine move if it’s now Stockfish’s turn.
+        if (isSinglePlayerMode && game.turn() !== humanColor && !game.game_over()) {
+          setTimeout(function() {
+            askEngineForMove(game.fen());
+          }, 250);
+        }
+      }
+    }
+
+    // --- Stockfish Integration ---
+    // Initialize the Stockfish engine as a Web Worker.
+    function initStockfish() {
+      if (typeof(Worker) === "undefined") {
+        console.error("Your browser does not support Web Workers.");
+        return;
+      }
+      if (!stockfish) {
+        stockfish = new Worker('stockfish.js');
+        stockfish.onmessage = function(e) {
+          var msg = e.data;
+          console.log("Stockfish:", msg);
+          // Look for the best move output.
+          if (msg.indexOf("bestmove") === 0) {
+            var tokens = msg.split(" ");
+            var bestMove = tokens[1];
+            if (bestMove && bestMove !== "(none)") {
+              game.move({
+                from: bestMove.substring(0, 2),
+                to: bestMove.substring(2, 4),
+                promotion: 'q'
+              });
+              drawBoard();
+            }
+          }
+        };
+        stockfish.postMessage("uci");
+        // Delay slightly before setting options to ensure the engine is ready.
+        setTimeout(updateEngineDifficulty, 500);
+      } else {
+        updateEngineDifficulty();
+      }
+    }
+
+    // Set the engine’s difficulty using the Skill Level option.
+    function updateEngineDifficulty() {
+      var diffSelect = document.getElementById("difficultySelect");
+      var diff = diffSelect.value;
+      // Send command to set the engine's skill level.
+      stockfish.postMessage("setoption name Skill Level value " + diff);
+    }
+
+    // Ask Stockfish for a move using the current board state in FEN.
+    function askEngineForMove(fen) {
+      if (!stockfish) {
+        console.error("Stockfish engine not initialized.");
+        return;
+      }
+      stockfish.postMessage("position fen " + fen);
+      // Here we use a fixed move time; you could also adjust this based on difficulty if desired.
+      stockfish.postMessage("go movetime 500");
+    }
+    // --- End Stockfish Integration ---
+
+    // Listen for changes in game mode.
+    document.getElementById("modeSelect").addEventListener("change", function(e) {
+      var mode = e.target.value;
+      if (mode === "stockfish") {
+        isSinglePlayerMode = true;
+        // In single-player mode, assume the human plays white.
+        humanColor = 'w';
+        initStockfish();
+      } else {
+        isSinglePlayerMode = false;
+      }
+      resetGame();
+    });
+
+    // Update engine difficulty when the user changes the setting.
+    document.getElementById("difficultySelect").addEventListener("change", function() {
+      if (isSinglePlayerMode && stockfish) {
+        updateEngineDifficulty();
+      }
+    });
+
+    // Reset game to the starting position.
+    function resetGame() {
       game.reset();
       selectedSquare = null;
       drawBoard();
-    });
-
-    // Placeholder for Stockfish integration.
-    // Future single–player functionality can be added here.
-    function initStockfish() {
-      // Example: Setup a Web Worker with Stockfish and integrate engine moves.
     }
 
-    // Initialize the board and render the starting position.
+    document.getElementById("resetButton").addEventListener("click", function() {
+      resetGame();
+    });
+
+    // Initialize the board upon page load.
     createBoard();
     drawBoard();
   </script>
