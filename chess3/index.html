@@ -269,7 +269,7 @@
             if (diff === -1) {
               // Use worst-move search at depth 20.
               setTimeout(function() {
-                chooseWorstMoveUsingStockfish(20).then(function(engineMove) {
+                chooseWorstMoveUsingStockfish(16).then(function(engineMove) {
                   if (engineMove) { game.move({ from: engineMove.from, to: engineMove.to, promotion: 'q' }); }
                   drawBoard();
                 });
