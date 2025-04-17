@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mitch's Sigma Chess</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    h1   { text-align:center; margin-bottom:10px; }
-    #game-options{ text-align:center; margin-bottom:10px; }
-    #status{ text-align:center; margin-top:15px; font-size:20px; }
+    h1  { text-align:center; margin-bottom:10px; }
+    #game-options { text-align:center; margin-bottom:10px; }
+    #status { text-align:center; margin-top:15px; font-size:20px; }
     #version{ text-align:center; font-size:10px; margin-top:10px; }
 
     /* board + eval‑bar + analysis */
@@ -23,13 +23,11 @@
         font-size:42px; cursor:pointer; user-select:none; }
     .light{ background:#f0d9b5; } .dark{ background:#b58863; } .selected{ outline:3px solid red; }
 
-    /* hidden groups */
-    #single-difficulty,#losing-depth,#engine-levels,#worst-depth-control,
-    #setup-controls,#piece-palette,#analysis-controls{ display:none; }
-
-    /* palette */
+    /* palette / hidden groups */
     #piece-palette{ margin:10px auto; width:600px; text-align:center; }
     #piece-palette button{ font-size:24px; margin:2px; padding:5px 10px; }
+    #single-difficulty,#losing-depth,#engine-levels,#worst-depth-control,
+    #setup-controls,#piece-palette,#analysis-controls{ display:none; }
 
     /* buttons */
     #resetButton,#startEngineVsEngine,#finishSetupButton{ margin-top:10px; padding:5px 15px; font-size:16px; }
@@ -45,6 +43,7 @@
 <body>
   <h1>Mitch's Sigma Chess</h1>
 
+  <!-- === TOP‑BAR CONTROLS (unchanged) === -->
   <div id="game-options">
     <label>Game Mode:</label>
     <select id="modeSelect">
@@ -56,25 +55,29 @@
       <option value="analysis">Analysis Mode</option>
     </select>
 
-    <!-- eval‑bar toggle -->
+    <!-- Eval‑bar toggle -->
     <label><input type="checkbox" id="evalBarToggle"/> Show eval bar</label>
 
-    <!-- Start‑analysis button (appears only in Analysis mode) -->
+    <!-- Difficulty selectors, losing depth, engine‑v‑engine skills (your originals) -->
+    <span id="single-difficulty"> … </span>
+    <span id="losing-depth"> … </span>
+    <span id="engine-levels"> … </span>
+    <span id="worst-depth-control"> … </span>
+
+    <!-- Start‑Analysis button (replaces old FEN analyze) -->
     <span id="analysis-controls"><button id="startAnalysis">Start Analysis</button></span>
   </div>
 
-  <!-- existing difficulty / depth / palette / setup UI (unchanged) -->
-  … <!-- KEEP YOUR ORIGINAL SINGLE‑PLAYER, LOSING, ENGINE‑LEVEL, SETUP CONTROLS HERE -->
-
-  <!-- Palette for setup -->
+  <!-- Setup controls / palette (unchanged HTML) -->
+  <span id="setup-controls"> … </span>
   <div id="piece-palette"></div>
 
-  <!-- board + eval bar + analysis panel -->
+  <!-- === BOARD / EVAL BAR / ANALYSIS PANEL === -->
   <div id="board-container">
     <div id="evalBarContainer"><div id="evalBar"></div></div>
     <div id="chessboard"></div>
 
-    <!-- NEW analysis panel -->
+    <!-- new 365Chess‑style panel -->
     <div id="analysis-panel">
       <button id="stopAnalysis" disabled>Stop Analysis</button>
       <button id="hideAnalysis">Hide</button>
@@ -105,6 +108,7 @@
     </div>
   </div>
 
+  <!-- bottom buttons (unchanged) -->
   <button id="startEngineVsEngine">Start Engine vs Engine</button>
   <button id="resetButton">Reset Game</button>
   <div id="status"></div>
@@ -112,16 +116,16 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-  /* =======   EVERYTHING BELOW IS YOUR ORIGINAL CODE, EXCEPT:  =======
-     1.  old FEN‑based analysis handler removed
-     2.  new analysis engine/panel logic added at the bottom
-     ================================================================== */
+  /* === YOUR EXISTING GLOBALS, BOARD LOGIC, OTB, STOCKFISH, LOSING,
+         ENGINE‑V‑ENGINE, SETUP, EVAL‑BAR FUNCTIONS — UNCHANGED === */
 
-  // ---- your unchanged globals, board drawing, OTB, Stockfish, Losing, Engine‑v‑Engine, Setup … ----
-  // (  ... keep all existing code down to the old analysis section  )
+  // keep all original variables and functions up to the old Analysis section …
 
-  /* =================  NEW 365Chess‑style ANALYSIS SECTION  ================= */
+  /* ----------  REPLACE old FEN‑Analyze section with new Analysis engine  ---------- */
 
+  // remove the old analyzeButton handler entirely
+
+  /* === 365Chess‑style Analysis === */
   let engine=null, isAnalyzing=false, pvCount=3;
 
   function initAnalysisEngine(){
@@ -130,7 +134,6 @@
     engine.onmessage = e => onAnalysisMsg(e.data);
     engine.postMessage('uci');
   }
-
   function startAnalysis(){
     initAnalysisEngine();
     isAnalyzing = true;
@@ -143,8 +146,6 @@
     document.getElementById('stopAnalysis').disabled = true;
     if(engine) engine.postMessage('stop');
   }
-
-  // buttons
   document.getElementById('startAnalysis').onclick = startAnalysis;
   document.getElementById('stopAnalysis').onclick  = stopAnalysis;
   document.getElementById('hideAnalysis').onclick  = () => {
@@ -171,7 +172,6 @@
     engine.postMessage('setoption name UCI_AnalyseMode value true');
     engine.postMessage('go depth '+(+document.getElementById('depthSelect').value));
   }
-
   function onAnalysisMsg(line){
     if(!line.startsWith('info')) return;
     const t=line.split(' '), mp=t.indexOf('multipv'), sc=t.indexOf('score'), pv=t.indexOf('pv');
@@ -182,19 +182,17 @@
       updatePV(num,cp,moves);
     }
   }
-
-  function updatePV(num,cp,moves){
+  function updatePV(n,cp,moves){
     const ul=document.getElementById('pv-list');
-    let li=ul.querySelector(`li[data-pv="${num}"]`);
-    if(!li){
-      li=document.createElement('li'); li.dataset.pv=num;
-      li.onclick=()=>{ game.reset(); moves.forEach(m=>game.move(m)); drawBoard(); };
+    let li=ul.querySelector(`li[data-pv="${n}"]`);
+    if(!li){ li=document.createElement('li'); li.dataset.pv=n;
+      li.onclick=()=>{ game.reset(); moves.forEach(x=>game.move(x)); drawBoard(); };
       ul.appendChild(li);
     }
-    li.textContent=`${num}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
+    li.textContent=`${n}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
   }
 
-  // import / position buttons
+  // import FEN/PGN, setup/play buttons (reuse existing helpers)
   document.getElementById('importFEN').onclick = () => {
     const fen=prompt('Paste FEN:'); if(fen&&game.load(fen)) drawBoard(); else alert('Bad FEN');
   };
@@ -211,22 +209,26 @@
     document.getElementById('modeSelect').dispatchEvent(new Event('change'));
   };
 
-  /* =======  MODIFY MODE‑SWITCH TOGGLE  ======= */
-  const originalModeHandler = document.getElementById('modeSelect').onchange;
-  document.getElementById('modeSelect').onchange = () => {
-    currentMode = document.getElementById('modeSelect').value;
-    // show Start Analysis only in analysis mode
-    document.getElementById('analysis-controls').style.display =
-      currentMode==='analysis' ? 'inline' : 'none';
-    // hide panel when leaving analysis
-    if(currentMode!=='analysis'){ stopAnalysis(); document.getElementById('analysis-panel').style.display='none'; }
-    originalModeHandler(); // run the rest of your existing handler
-  };
+  /* ----- modify updateUI so Analysis hides panel when not active ----- */
+  const originalUpdateUI = updateUI;
+  function updateUI(){
+    originalUpdateUI();                    // keep your original behaviour
+    if(currentMode==='analysis'){
+      document.getElementById('analysis-controls').style.display='inline';
+    } else {
+      document.getElementById('analysis-controls').style.display='none';
+      stopAnalysis(); document.getElementById('analysis-panel').style.display='none';
+    }
+  }
 
-  /* =======  INITIALIZE  ======= */
+  // reset existing listeners (unchanged)
+  document.getElementById('modeSelect').addEventListener('change',()=>{
+    updateUI(); resetGame();
+  });
+
+  /* ==== INIT ==== */
   window.onload = () => {
     createBoard(); drawBoard(); updateStatus();
-    document.getElementById('analysis-controls').style.display='none';
   };
   </script>
 </body>
