@@ -596,25 +596,26 @@
 
     /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
     function updateUI() {
-      var mode = document.getElementById("modeSelect").value;
-      currentMode = mode;
-      document.getElementById("single-difficulty").style.display = (mode === "stockfish") ? "inline" : "none";
-      document.getElementById("losing-depth").style.display = (mode === "losing") ? "inline" : "none";
-      document.getElementById("engine-levels").style.display = (mode === "enginevengine") ? "inline" : "none";
-      document.getElementById("setup-controls").style.display = (mode === "setup") ? "inline" : "none";
-      document.getElementById("startEngineVsEngine").style.display = (mode === "enginevengine") ? "inline-block" : "none";
-      updateWorstDepthControlVisibility();
-      document.getElementById("piece-palette").style.display = (mode === "setup") ? "block" : "none";
-      if (mode === "setup") {
-        initializeSetupBoard();
-        createPiecePalette();
-      }
-      // If switching away from setup and a custom position has been applied, reload it.
-      if (mode !== "setup" && customFEN) {
-        game.load(customFEN);
-        drawBoard();
-      }
-    }
+  var mode = document.getElementById("modeSelect").value;
+  currentMode = mode;
+  document.getElementById("single-difficulty").style.display = (mode === "stockfish") ? "inline" : "none";
+  document.getElementById("losing-depth").style.display = (mode === "losing") ? "inline" : "none";
+  document.getElementById("engine-levels").style.display = (mode === "enginevengine") ? "inline" : "none";
+  document.getElementById("setup-controls").style.display = (mode === "setup") ? "inline" : "none";
+  document.getElementById("startEngineVsEngine").style.display = (mode === "enginevengine") ? "inline-block" : "none";
+  updateWorstDepthControlVisibility();
+  document.getElementById("piece-palette").style.display = (mode === "setup") ? "block" : "none";
+  if (mode === "setup") {
+    initializeSetupBoard();
+    createPiecePalette();
+  }
+  // If switching away from setup and customFEN exists, reload it,
+  // but do not force-reload it in engine-vs-engine mode.
+  if (mode !== "setup" && mode !== "enginevengine" && customFEN) {
+    game.load(customFEN);
+    drawBoard();
+  }
+}
     function updateWorstDepthControlVisibility() {
       var mode = currentMode;
       var show = false;
