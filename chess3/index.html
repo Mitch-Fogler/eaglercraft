@@ -661,7 +661,7 @@ function playPV(moves){
     document.getElementById('losing-depth').style.display     = m==='losing'   ?'inline':'none';
     document.getElementById('engine-levels').style.display   = m==='enginevengine'?'inline':'none';
     document.getElementById('setup-controls').style.display  = m==='setup'    ?'inline':'none';
-    
+    document.getElementById('analysis-controls').style.display = m==='analysis'?'inline':'none';
     // show/hide the “Start Analysis” button
 document.getElementById('analysis-controls').style.display =
   currentMode === 'analysis' ? 'inline' : 'none';
