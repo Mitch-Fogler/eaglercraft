@@ -2,45 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mitch's Sigma Chess</title>
   <style>
+    /* Basic layout */
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; margin-bottom: 10px; }
     #game-options { text-align: center; margin-bottom: 10px; }
-    #game-options label,
-    #game-options select,
-    #game-options input { font-size: 16px; margin-right: 10px; }
+    #status { text-align: center; margin-top: 15px; font-size: 20px; }
+
+    /* Board */
     #chessboard { margin: 0 auto; display: inline-block; }
     table { border-collapse: collapse; }
     td {
-      width: 60px;
-      height: 60px;
-      vertical-align: middle;
-      text-align: center;
+      width: 60px; height: 60px;
+      text-align: center; vertical-align: middle;
       font-size: 42px;
-      cursor: pointer;
-      user-select: none;
+      cursor: pointer; user-select: none;
     }
-    .dark { background-color: #b58863; }
-    .light { background-color: #f0d9b5; }
+    .light { background: #f0d9b5; }
+    .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
-    #status { margin-top: 15px; font-size: 20px; text-align: center; }
-    #resetButton, #startEngineVsEngine, #finishSetupButton { margin-top: 10px; padding: 5px 15px; font-size: 16px; }
-    #version { font-size: 10px; text-align: center; margin-top: 10px; }
-    /* Extra controls */
-    #losing-depth, #engine-levels, #single-difficulty, #worst-depth-control, #setup-controls { display: none; }
-    /* Piece palette for setup mode */
+
+    /* Controls */
+    #resetButton, #startEngineVsEngine, #finishSetupButton {
+      margin-top: 10px; padding: 5px 15px; font-size: 16px;
+    }
+    #version { text-align: center; font-size: 10px; margin-top: 10px; }
+
+    /* Hide all extra control groups by default */
+    #single-difficulty,
+    #losing-depth,
+    #engine-levels,
+    #worst-depth-control,
+    #setup-controls,
     #piece-palette {
       display: none;
-      margin: 10px auto;
-      width: 600px;
-      text-align: center;
+    }
+
+    /* Palette styling */
+    #piece-palette {
+      margin: 10px auto; width: 600px; text-align: center;
     }
     #piece-palette button {
-      font-size: 24px;
-      margin: 2px;
-      padding: 5px 10px;
+      font-size: 24px; margin: 2px; padding: 5px 10px;
       cursor: pointer;
     }
   </style>
@@ -48,138 +53,76 @@
 <body>
   <h1>Mitch's Sigma Chess</h1>
 
-  <!-- Game Options -->
   <div id="game-options">
-    <label for="modeSelect">Game Mode:</label>
+    <label>Game Mode:</label>
     <select id="modeSelect">
       <option value="twoplayer">Two Player</option>
       <option value="stockfish">Play Against Stockfish</option>
-      <option value="losing">Losing Mode (Stockfish tries to lose)</option>
+      <option value="losing">Losing Mode</option>
       <option value="enginevengine">Engine vs Engine</option>
       <option value="setup">Setup Position</option>
     </select>
 
-    <!-- Single Player Difficulty -->
+    <!-- Single-player difficulty -->
     <span id="single-difficulty">
-      <label for="difficultySelect">Difficulty:</label>
+      <label>Difficulty:</label>
       <select id="difficultySelect">
         <option value="-1">-1</option>
-        <option value="0">0 (Weakest)</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5" selected>5 (Medium)</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10 (Strong)</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="14">14</option>
-        <option value="15">15</option>
-        <option value="16">16</option>
-        <option value="17">17</option>
-        <option value="18">18</option>
-        <option value="19">19</option>
-        <option value="20">20 (Strongest)</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
       </select>
     </span>
 
-    <!-- Losing Mode Depth Selector -->
+    <!-- Losing-depth -->
     <span id="losing-depth">
-      <label for="losingDepthSelect">Losing Depth:</label>
+      <label>Losing Depth:</label>
       <select id="losingDepthSelect">
-         <option value="1">1</option>
-         <option value="2">2</option>
-         <option value="3">3</option>
-         <option value="4">4</option>
-         <option value="5">5</option>
-         <option value="6">6</option>
-         <option value="7">7</option>
-         <option value="8">8</option>
-         <option value="9">9</option>
-         <option value="10" selected>10</option>
-         <option value="11">11</option>
-         <option value="12">12</option>
-         <option value="13">13</option>
-         <option value="14">14</option>
-         <option value="15">15</option>
-         <option value="16">16</option>
-         <option value="17">17</option>
-         <option value="18">18</option>
-         <option value="19">19</option>
-         <option value="20">20</option>
+        <option>1</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option selected>10</option><option>11</option><option>12</option>
+        <option>13</option><option>14</option><option>15</option><option>16</option>
+        <option>17</option><option>18</option><option>19</option><option>20</option>
       </select>
     </span>
 
-    <!-- Engine vs Engine Difficulty selectors -->
+    <!-- Engine vs engine levels -->
     <span id="engine-levels">
-      <label for="whiteDifficultySelect">White Skill:</label>
+      <label>White Skill:</label>
       <select id="whiteDifficultySelect">
         <option value="-1">-1</option>
-        <option value="0">0</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5" selected>5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="14">14</option>
-        <option value="15">15</option>
-        <option value="16">16</option>
-        <option value="17">17</option>
-        <option value="18">18</option>
-        <option value="19">19</option>
-        <option value="20">20</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
       </select>
-
-      <label for="blackDifficultySelect">Black Skill:</label>
+      <label>Black Skill:</label>
       <select id="blackDifficultySelect">
         <option value="-1">-1</option>
-        <option value="0">0</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5" selected>5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="14">14</option>
-        <option value="15">15</option>
-        <option value="16">16</option>
-        <option value="17">17</option>
-        <option value="18">18</option>
-        <option value="19">19</option>
-        <option value="20">20</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
       </select>
     </span>
 
-    <!-- Worst Move Depth for -1 difficulties -->
+    <!-- Worst-move depth for -1 -->
     <span id="worst-depth-control">
-      <label for="worstDepthInput">Worst Move Depth (for -1):</label>
-      <input type="number" id="worstDepthInput" min="1" max="20" value="10" />
+      <label>Worst Move Depth (for -1):</label>
+      <input type="number" id="worstDepthInput" min="1" max="20" value="10"/>
     </span>
 
-    <!-- Setup Position Controls -->
+    <!-- Setup controls -->
     <span id="setup-controls">
-      <div>Setup Position (select a piece from the palette, then click a square):</div>
-      <label for="turnSelect">Turn:</label>
+      <div>Setup Position (select palette, then click square):</div>
+      <label>Turn:</label>
       <select id="turnSelect">
         <option value="w" selected>White to move</option>
         <option value="b">Black to move</option>
@@ -188,474 +131,411 @@
     </span>
   </div>
 
-  <!-- Piece Palette for Setup Mode -->
+  <!-- Piece palette -->
   <div id="piece-palette"></div>
 
-  <!-- Engine vs Engine Start Button -->
+  <!-- Engine vs engine start -->
   <button id="startEngineVsEngine">Start Engine vs Engine</button>
 
-  <!-- Chessboard and Status -->
+  <!-- Board & status -->
   <div id="chessboard"></div>
   <div id="status"></div>
   <button id="resetButton">Reset Game</button>
 
-  <!-- Version Number -->
+  <!-- Version -->
   <div id="version">v.1.8</div>
 
-  <!-- Include chess.js via CDN -->
+  <!-- chess.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-    // Global Variables
+    // === Globals ===
     var game = new Chess();
+    var boardDiv = document.getElementById('chessboard');
+    var currentMode = 'twoplayer';
+    var humanColor = 'w';
+    var customFEN = null;
+    var boardSetup = {};
+    var selectedPalettePiece = '';
     var selectedSquare = null;
-    var boardDiv = document.getElementById("chessboard");
-    var isSinglePlayerMode = false; // true when human plays against engine
-    var currentMode = "twoplayer";  // Modes: 'twoplayer', 'stockfish', 'losing', 'enginevengine', 'setup'
-    var humanColor = 'w';           // In single-player modes, human plays white
     var files = ['a','b','c','d','e','f','g','h'];
-    var customFEN = null;           // Stores custom position from setup mode
 
-    // For setup mode:
-    var boardSetup = {};            // Holds piece codes for squares (e.g. "wp", "bk", or "")
-    var selectedPalettePiece = "";  // Currently selected piece from palette
+    // Engine workers
+    var stockfish, stockfishWhite, stockfishBlack;
 
-    /* ----------------------- Board Rendering ----------------------- */
+    // === Board rendering ===
     function createBoard() {
-      var table = document.createElement("table");
-      for (var i = 0; i < 8; i++) {
-        var row = document.createElement("tr");
+      var tbl = document.createElement('table');
+      for (var i=0; i<8; i++) {
+        var tr = document.createElement('tr');
         var rank = 8 - i;
-        for (var j = 0; j < 8; j++) {
-          var cell = document.createElement("td");
-          var file = files[j];
-          var square = file + rank;
-          cell.id = square;
-          cell.className = ((i + j) % 2 === 0) ? "dark" : "light";
-          cell.addEventListener("click", onCellClick);
-          row.appendChild(cell);
+        for (var j=0; j<8; j++) {
+          var td = document.createElement('td');
+          var sq = files[j] + rank;
+          td.id = sq;
+          td.className = (i+j)%2? 'light':'dark';
+          td.addEventListener('click', onCellClick);
+          tr.appendChild(td);
         }
-        table.appendChild(row);
+        tbl.appendChild(tr);
       }
-      boardDiv.innerHTML = "";
-      boardDiv.appendChild(table);
+      boardDiv.innerHTML = '';
+      boardDiv.appendChild(tbl);
+    }
+
+    function getUnicode(piece) {
+      var m = {
+        p:{w:'♙',b:'♟'},
+        r:{w:'♖',b:'♜'},
+        n:{w:'♘',b:'♞'},
+        b:{w:'♗',b:'♝'},
+        q:{w:'♕',b:'♛'},
+        k:{w:'♔',b:'♚'}
+      };
+      return m[piece.type][piece.color];
     }
 
     function drawBoard() {
-      var boardState = game.board();
-      for (var i = 0; i < 8; i++) {
+      var b = game.board();
+      for (var i=0; i<8; i++) {
         var rank = 8 - i;
-        for (var j = 0; j < 8; j++) {
-          var cell = document.getElementById(files[j] + rank);
-          var piece = boardState[i][j];
-          cell.innerHTML = piece ? getUnicode(piece) : "";
-          cell.classList.remove("selected");
+        for (var j=0; j<8; j++) {
+          var sq = files[j] + rank;
+          var td = document.getElementById(sq);
+          var pc = b[i][j];
+          td.innerHTML = pc? getUnicode(pc): '';
+          td.classList.remove('selected');
         }
       }
       updateStatus();
     }
 
-    // In setup mode, draw the board based on boardSetup
     function drawSetupBoard() {
-      for (var i = 0; i < 8; i++) {
-        var rank = 8 - i;
-        for (var j = 0; j < 8; j++) {
-          var square = files[j] + rank;
-          var cell = document.getElementById(square);
-          var pieceCode = boardSetup[square] || "";
-          cell.innerHTML = pieceCode ? getUnicode({ type: pieceCode.substring(1), color: pieceCode[0] }) : "";
+      for (var r=8; r>=1; r--) {
+        for (var f=0; f<8; f++) {
+          var sq = files[f] + r;
+          var td = document.getElementById(sq);
+          var code = boardSetup[sq]||'';
+          td.innerHTML = code? getUnicode({ type: code[1], color: code[0] }): '';
         }
       }
-    }
-
-    // Map piece codes to Unicode symbols.
-    function getUnicode(piece) {
-      var unicode = {
-        'p': {'w': '♙', 'b': '♟'},
-        'r': {'w': '♖', 'b': '♜'},
-        'n': {'w': '♘', 'b': '♞'},
-        'b': {'w': '♗', 'b': '♝'},
-        'q': {'w': '♕', 'b': '♛'},
-        'k': {'w': '♔', 'b': '♚'}
-      };
-      return unicode[piece.type][piece.color];
     }
 
     function updateStatus() {
-      var statusDiv = document.getElementById("status");
-      var status = "";
+      var s = '';
       if (game.in_checkmate()) {
-        status = "Game over: " + (game.turn() === 'w' ? "Black" : "White") + " wins by checkmate.";
+        s = 'Game over: ' + (game.turn()==='w'?'Black':'White') + ' wins by checkmate.';
       } else if (game.in_draw()) {
-        status = "Game over: drawn position.";
+        s = 'Game over: drawn position.';
       } else {
-        status = (game.turn() === 'w' ? "White" : "Black") + " to move.";
-        if (game.in_check()) status += " Check!";
+        s = (game.turn()==='w'?'White':'Black') + ' to move.' + (game.in_check()?' Check!':'');
       }
-      statusDiv.textContent = status;
+      document.getElementById('status').textContent = s;
     }
 
-    /* ----------------------- Piece Palette (Setup Mode) ----------------------- */
+    // === Palette ===
     function createPiecePalette() {
-      var paletteDiv = document.getElementById("piece-palette");
-      var palette = [
-        { label: "Clear", code: "" },
-        { label: "♙", code: "wp" },
-        { label: "♘", code: "wn" },
-        { label: "♗", code: "wb" },
-        { label: "♖", code: "wr" },
-        { label: "♕", code: "wq" },
-        { label: "♔", code: "wk" },
-        { label: "♟", code: "bp" },
-        { label: "♞", code: "bn" },
-        { label: "♝", code: "bb" },
-        { label: "♜", code: "br" },
-        { label: "♛", code: "bq" },
-        { label: "♚", code: "bk" }
+      var pal = document.getElementById('piece-palette');
+      var items = [
+        {lbl:'Clear', code:''},
+        {lbl:'♙', code:'wp'},{lbl:'♘', code:'wn'},{lbl:'♗', code:'wb'},
+        {lbl:'♖', code:'wr'},{lbl:'♕', code:'wq'},{lbl:'♔', code:'wk'},
+        {lbl:'♟', code:'bp'},{lbl:'♞', code:'bn'},{lbl:'♝', code:'bb'},
+        {lbl:'♜', code:'br'},{lbl:'♛', code:'bq'},{lbl:'♚', code:'bk'}
       ];
-      var html = "";
-      palette.forEach(function(item) {
-        html += '<button type="button" onclick="selectPalettePiece(\'' + item.code + '\')">' + item.label + "</button>";
+      pal.innerHTML = '';
+      items.forEach(function(it) {
+        var btn = document.createElement('button');
+        btn.innerText = it.lbl;
+        btn.onclick = function(){ selectPalettePiece(it.code); };
+        pal.appendChild(btn);
       });
-      paletteDiv.innerHTML = html;
+      selectPalettePiece('');  // default select “clear”
     }
+
     function selectPalettePiece(code) {
       selectedPalettePiece = code;
-      var buttons = document.getElementById("piece-palette").getElementsByTagName("button");
-      for (var i = 0; i < buttons.length; i++) {
-        buttons[i].style.border = "";
-        if ((selectedPalettePiece === "" && buttons[i].innerText === "Clear") ||
-            (selectedPalettePiece !== "" && buttons[i].innerText === getUnicode({ type: selectedPalettePiece.substring(1), color: selectedPalettePiece[0] }))) {
-          buttons[i].style.border = "2px solid red";
-        }
-      }
+      Array.from(document.getElementById('piece-palette').children)
+        .forEach(function(b){
+          b.style.border = ( (code===''
+            ? b.innerText==='Clear'
+            : b.innerText === getUnicode({type:code[1],color:code[0]}) )
+            ? '2px solid red':'');
+        });
     }
 
-    /* ----------------------- Move Handling ----------------------- */
+    // === Click handler ===
     function onCellClick(e) {
-      if (currentMode === "setup") {
-        // In setup mode, place the currently selected palette piece on the clicked square.
-        var square = e.currentTarget.id;
-        boardSetup[square] = selectedPalettePiece;
+      var sq = e.currentTarget.id;
+      if (currentMode==='setup') {
+        boardSetup[sq] = selectedPalettePiece;
         drawSetupBoard();
         return;
       }
-      // For other modes, handle moves normally.
-      if (currentMode === "enginevengine") return;
-      var square = e.currentTarget.id;
+      if (currentMode==='enginevengine') return;
+      // normal move:
       if (!selectedSquare) {
-        var piece = game.get(square);
-        if (piece && piece.color === game.turn()) {
-          if ((currentMode === "stockfish" || currentMode === "losing") && piece.color !== humanColor) return;
-          selectedSquare = square;
-          e.currentTarget.classList.add("selected");
-        }
+        var pc = game.get(sq);
+        if (!pc || pc.color!==game.turn()) return;
+        if ((currentMode==='stockfish'||currentMode==='losing') && pc.color!==humanColor) return;
+        selectedSquare = sq; e.currentTarget.classList.add('selected');
       } else {
-        if (selectedSquare === square) {
-          e.currentTarget.classList.remove("selected");
-          selectedSquare = null;
-          return;
+        if (selectedSquare===sq) { 
+          document.getElementById(sq).classList.remove('selected');
+          selectedSquare = null; return;
         }
-        var from = selectedSquare, to = square;
-        var piece = game.get(from);
-        var promoChoice = 'q';
-        if (piece && piece.type === 'p' &&
-            ((piece.color === 'w' && square.endsWith("8")) ||
-             (piece.color === 'b' && square.endsWith("1")))) {
-          var choice = prompt("Promote to (q, r, b, n):", "q");
-          if (choice && ["q", "r", "b", "n"].includes(choice.toLowerCase())) {
-            promoChoice = choice.toLowerCase();
-          }
+        // handle promotion
+        var promo='q', pc=game.get(selectedSquare);
+        if (pc && pc.type==='p' && ((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))) {
+          var c=prompt('Promote to (q,r,b,n):','q');
+          if (c&&( 'qrbn'.includes(c.toLowerCase()) )) promo=c.toLowerCase();
         }
-        var move = game.move({ from: from, to: to, promotion: promoChoice });
-        if (move === null) { alert("Invalid move!"); }
-        selectedSquare = null;
-        drawBoard();
-        if ((currentMode === "stockfish" || currentMode === "losing") &&
-            game.turn() !== humanColor && !game.game_over()) {
-          if (currentMode === "stockfish") {
-            var diff = parseInt(document.getElementById("difficultySelect").value, 10);
-            if (diff === -1) {
-              var worstDepth = parseInt(document.getElementById("worstDepthInput").value, 10) || 10;
-              setTimeout(function() {
-                chooseWorstMoveUsingStockfish(worstDepth).then(function(engineMove) {
-                  if (engineMove) { game.move(engineMove); }
-                  drawBoard();
-                });
-              }, 250);
-            } else {
-              setTimeout(function() { askEngineForMove(game.fen()); }, 250);
-            }
-          } else if (currentMode === "losing") {
-            setTimeout(function() {
-              chooseWorstMoveUsingStockfish().then(function(engineMove) {
-                if (engineMove) { game.move(engineMove); }
-                drawBoard();
-              });
-            }, 250);
+        var mv = game.move({from:selectedSquare,to:sq,promotion:promo});
+        if (!mv) alert('Invalid!');
+        selectedSquare=null; drawBoard();
+        // engine response
+        if ((currentMode==='stockfish'||currentMode==='losing') && game.turn()!==humanColor && !game.game_over()) {
+          if (currentMode==='stockfish') {
+            var d=parseInt(document.getElementById('difficultySelect').value,10);
+            if (d===-1) {
+              var wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+              setTimeout(function(){
+                chooseWorstMoveUsingStockfish(wd).then(function(m){ if(m) game.move(m); drawBoard(); });
+              },250);
+            } else setTimeout(function(){ askEngineForMove(game.fen()); },250);
+          } else {
+            setTimeout(function(){
+              chooseWorstMoveUsingStockfish().then(function(m){ if(m) game.move(m); drawBoard(); });
+            },250);
           }
         }
       }
     }
 
-    /* ----------------------- Setup Mode Functions ----------------------- */
-    function initializeSetupBoard() {
+    // === Setup mode ===
+    function initializeSetupBoard(){
       boardSetup = {};
-      for (var i = 0; i < 8; i++) {
-        var rank = 8 - i;
-        for (var j = 0; j < 8; j++) {
-          boardSetup[files[j] + rank] = "";
-        }
-      }
+      for(var r=1;r<=8;r++)for(var f of files)boardSetup[f+r]='';
       drawSetupBoard();
     }
-    function finishSetup() {
-      var turn = document.getElementById("turnSelect").value;
-      var fenParts = [];
-      for (var rank = 8; rank >= 1; rank--) {
-        var rankStr = "";
-        var emptyCount = 0;
-        for (var i = 0; i < 8; i++) {
-          var square = files[i] + rank;
-          var piece = boardSetup[square] || "";
-          if (!piece) { emptyCount++; }
-          else {
-            if (emptyCount > 0) { rankStr += emptyCount; emptyCount = 0; }
-            var letter = piece.substring(1);
-            letter = (piece[0] === 'w') ? letter.toUpperCase() : letter.toLowerCase();
-            rankStr += letter;
+    function finishSetup(){
+      var turn=document.getElementById('turnSelect').value;
+      var parts=[];
+      for(var rank=8;rank>=1;rank--){
+        var row='',empty=0;
+        for(var f of files){
+          var c=boardSetup[f+rank]||'';
+          if(!c) empty++;
+          else{
+            if(empty){ row+=empty; empty=0; }
+            var L=c[1]; L = c[0]==='w'?L.toUpperCase():L.toLowerCase();
+            row+=L;
           }
         }
-        if (emptyCount > 0) { rankStr += emptyCount; }
-        fenParts.push(rankStr);
+        if(empty) row+=empty;
+        parts.push(row);
       }
-      var piecePlacement = fenParts.join("/");
-      var fen = piecePlacement + " " + turn + " - - 0 1";
-      customFEN = fen;
+      customFEN = parts.join('/')+' '+turn+' - - 0 1';
       game.load(customFEN);
       drawBoard();
-      alert("Custom position applied. Now switch mode to play with this position.");
+      alert('Position set. Switch mode to play.');
     }
 
-    /* ----------------------- Stockfish Functions ----------------------- */
-    function initStockfish() {
-      if (typeof(Worker) === "undefined") { console.error("Your browser does not support Web Workers."); return; }
-      if (!stockfish) {
-        stockfish = new Worker('stockfish.js');
-        stockfish.onmessage = function(e) {
-          var msg = e.data;
-          console.log("Stockfish:", msg);
-          if (msg.indexOf("bestmove") === 0) {
-            var tokens = msg.split(" ");
-            var bestMove = tokens[1];
-            if (bestMove && bestMove !== "(none)") {
-              var moveObj = fixEnginePromotion(bestMove, game.fen());
-              game.move(moveObj);
-              drawBoard();
+    // === Stockfish integration ===
+    function initStockfish(){
+      if(typeof Worker==='undefined'){console.error('No Web Workers');return;}
+      if(!stockfish){
+        stockfish=new Worker('stockfish.js');
+        stockfish.onmessage=function(e){
+          var m=e.data;
+          if(m.startsWith('bestmove')){
+            var mv=m.split(' ')[1];
+            if(mv!=='(none)'){
+              var mo=fixEnginePromotion(mv,game.fen());
+              game.move(mo); drawBoard();
             }
           }
         };
-        stockfish.postMessage("uci");
-        setTimeout(updateSingleEngineDifficulty, 500);
-      } else { updateSingleEngineDifficulty(); }
+        stockfish.postMessage('uci');
+        setTimeout(function(){ updateSingleEngineDifficulty(); },500);
+      } else updateSingleEngineDifficulty();
     }
-    function updateSingleEngineDifficulty() {
-      var diffSelect = document.getElementById("difficultySelect");
-      var diff = diffSelect.value;
-      stockfish.postMessage("setoption name Skill Level value " + diff);
+    function updateSingleEngineDifficulty(){
+      var d=document.getElementById('difficultySelect').value;
+      stockfish.postMessage('setoption name Skill Level value '+d);
     }
-    function askEngineForMove(fen) {
-      if (!stockfish) { console.error("Stockfish engine not initialized."); return; }
-      stockfish.postMessage("position fen " + fen);
-      stockfish.postMessage("go movetime 500");
+    function askEngineForMove(fen){
+      stockfish.postMessage('position fen '+fen);
+      stockfish.postMessage('go movetime 500');
     }
-    function evaluateMoveWithStockfish(fen, depth = 12) {
-      return new Promise(function(resolve, reject) {
-        var worker = new Worker('stockfish.js');
-        var evaluationScore = null;
-        worker.onmessage = function(e) {
-          var line = e.data;
-          if (line.indexOf("info") !== -1 && line.indexOf("score cp") !== -1) {
-            var scoreMatch = line.match(/score cp (-?\d+)/);
-            if (scoreMatch) { evaluationScore = parseInt(scoreMatch[1], 10); }
+
+    function evaluateMoveWithStockfish(fen,depth=12){
+      return new Promise(function(res){
+        var w=new Worker('stockfish.js'),score=null;
+        w.onmessage=function(e){
+          var L=e.data;
+          if(L.includes('score cp')){
+            var m=L.match(/score cp (-?\d+)/);
+            if(m) score=parseInt(m[1],10);
           }
-          if (line.indexOf("bestmove") === 0) {
-            worker.terminate();
-            resolve(evaluationScore);
+          if(L.startsWith('bestmove')){
+            w.terminate(); res(score);
           }
         };
-        worker.postMessage("uci");
-        setTimeout(function() {
-          worker.postMessage("position fen " + fen);
-          worker.postMessage("go depth " + depth);
-        }, 200);
+        w.postMessage('uci');
+        setTimeout(function(){
+          w.postMessage('position fen '+fen);
+          w.postMessage('go depth '+depth);
+        },200);
       });
     }
-    function chooseWorstMoveUsingStockfish(customDepth) {
-      var moves = game.moves({ verbose: true });
-      if (moves.length === 0) return Promise.resolve(null);
-      var depth = (typeof customDepth !== 'undefined')
-                  ? customDepth
-                  : parseInt(document.getElementById("losingDepthSelect").value, 10);
-      var evaluations = moves.map(function(move) {
-         var clone = new Chess(game.fen());
-         clone.move(move);
-         return evaluateMoveWithStockfish(clone.fen(), depth).then(function(evalScore) {
-              return { move: move, evalScore: evalScore };
-         });
+    function chooseWorstMoveUsingStockfish(customDepth){
+      var moves=game.moves({verbose:true});
+      if(!moves.length) return Promise.resolve(null);
+      var depth=customDepth!==undefined?customDepth:parseInt(document.getElementById('losingDepthSelect').value,10);
+      var promises=moves.map(function(m){
+        var c=new Chess(game.fen()); c.move(m);
+        return evaluateMoveWithStockfish(c.fen(),depth).then(function(s){return {move:m,score:s};});
       });
-      return Promise.all(evaluations).then(function(results) {
-         var worstMoveObject = results.reduce(function(acc, cur) {
-            return (cur.evalScore > acc.evalScore) ? cur : acc;
-         }, results[0]);
-         return worstMoveObject.move;
+      return Promise.all(promises).then(function(results){
+        return results.reduce(function(a,b){return b.score>a.score?b:a;},results[0]).move;
       });
     }
-    function initEngineVsEngine() {
-      if (stockfish) { stockfish.terminate(); stockfish = null; }
-      if (typeof(Worker) === "undefined") { console.error("Your browser does not support Web Workers."); return; }
-      // Initialize for White.
-      if (!stockfishWhite) {
-        stockfishWhite = new Worker('stockfish.js');
-        stockfishWhite.onmessage = function(e) {
-          var msg = e.data;
-          if (msg.indexOf("bestmove") === 0 && game.turn() === 'w') {
-            var tokens = msg.split(" ");
-            var bestMove = tokens[1];
-            if (bestMove && bestMove !== "(none)") {
-              var moveObj = fixEnginePromotion(bestMove, game.fen());
-              game.move(moveObj);
-              drawBoard();
-              setTimeout(autoPlayEngineVsEngine, 250);
+
+    function getEnginePromotionMove(fen,from,to){
+      var p=['q','r','b','n'];
+      for(var pi of p){
+        var c=new Chess(fen);
+        var mv=c.move({from:from,to:to,promotion:pi});
+        if(mv && !c.in_draw()) return {from:from,to:to,promotion:pi};
+      }
+      return {from:from,to:to,promotion:'q'};
+    }
+    function fixEnginePromotion(bestMove,fen){
+      var f=bestMove.substr(0,2),t=bestMove.substr(2,2);
+      if(bestMove.length===5){
+        var pr=bestMove[4];
+        var c=new Chess(fen);
+        c.move({from:f,to:t,promotion:pr});
+        if(c.in_draw()) return getEnginePromotionMove(fen,f,t);
+        else return {from:f,to:t,promotion:pr};
+      }
+      return {from:f,to:t};
+    }
+
+    // === Engine vs Engine ===
+    function initEngineVsEngine(){
+      if(stockfish){stockfish.terminate(); stockfish=null;}
+      if(typeof Worker==='undefined'){console.error('No W');return;}
+      // White
+      if(!stockfishWhite){
+        stockfishWhite=new Worker('stockfish.js');
+        stockfishWhite.onmessage=function(e){
+          var m=e.data;
+          if(m.startsWith('bestmove') && game.turn()==='w'){
+            var mv=m.split(' ')[1];
+            if(mv!=='(none)'){
+              var mo=fixEnginePromotion(mv,game.fen());
+              game.move(mo); drawBoard();
+              setTimeout(autoPlayEngineVsEngine,250);
             }
           }
         };
-        stockfishWhite.postMessage("uci");
+        stockfishWhite.postMessage('uci');
         setTimeout(function(){ updateEngineDifficulty('w'); },500);
-      } else { updateEngineDifficulty('w'); }
-      // Initialize for Black.
-      if (!stockfishBlack) {
-        stockfishBlack = new Worker('stockfish.js');
-        stockfishBlack.onmessage = function(e) {
-          var msg = e.data;
-          if (msg.indexOf("bestmove") === 0 && game.turn() === 'b') {
-            var tokens = msg.split(" ");
-            var bestMove = tokens[1];
-            if (bestMove && bestMove !== "(none)") {
-              var moveObj = fixEnginePromotion(bestMove, game.fen());
-              game.move(moveObj);
-              drawBoard();
-              setTimeout(autoPlayEngineVsEngine, 250);
+      } else updateEngineDifficulty('w');
+      // Black
+      if(!stockfishBlack){
+        stockfishBlack=new Worker('stockfish.js');
+        stockfishBlack.onmessage=function(e){
+          var m=e.data;
+          if(m.startsWith('bestmove') && game.turn()==='b'){
+            var mv=m.split(' ')[1];
+            if(mv!=='(none)'){
+              var mo=fixEnginePromotion(mv,game.fen());
+              game.move(mo); drawBoard();
+              setTimeout(autoPlayEngineVsEngine,250);
             }
           }
         };
-        stockfishBlack.postMessage("uci");
+        stockfishBlack.postMessage('uci');
         setTimeout(function(){ updateEngineDifficulty('b'); },500);
-      } else { updateEngineDifficulty('b'); }
+      } else updateEngineDifficulty('b');
       autoPlayEngineVsEngine();
     }
-    function updateEngineDifficulty(side) {
-      if (side === 'w') {
-        var level = document.getElementById("whiteDifficultySelect").value;
-        stockfishWhite.postMessage("setoption name Skill Level value " + level);
-      } else if (side === 'b') {
-        var level = document.getElementById("blackDifficultySelect").value;
-        stockfishBlack.postMessage("setoption name Skill Level value " + level);
-      }
+    function updateEngineDifficulty(side){
+      var val=document.getElementById(side==='w'?'whiteDifficultySelect':'blackDifficultySelect').value;
+      (side==='w'?stockfishWhite:stockfishBlack).postMessage('setoption name Skill Level value '+val);
     }
-    function autoPlayEngineVsEngine() {
-      if (game.game_over()) { updateStatus(); return; }
-      var fen = game.fen();
-      if (game.turn() === 'w') {
-        var whiteDiff = parseInt(document.getElementById("whiteDifficultySelect").value, 10);
-        if (whiteDiff === -1) {
-          var worstDepth = parseInt(document.getElementById("worstDepthInput").value, 10) || 10;
-          chooseWorstMoveUsingStockfish(worstDepth).then(function(engineMove) {
-            if (engineMove) { game.move(engineMove); }
-            drawBoard();
-            setTimeout(autoPlayEngineVsEngine, 250);
-          });
-        } else {
-          stockfishWhite.postMessage("position fen " + fen);
-          stockfishWhite.postMessage("go movetime 500");
-        }
-      } else if (game.turn() === 'b') {
-        var blackDiff = parseInt(document.getElementById("blackDifficultySelect").value, 10);
-        if (blackDiff === -1) {
-          var worstDepth = parseInt(document.getElementById("worstDepthInput").value, 10) || 10;
-          chooseWorstMoveUsingStockfish(worstDepth).then(function(engineMove) {
-            if (engineMove) { game.move(engineMove); }
-            drawBoard();
-            setTimeout(autoPlayEngineVsEngine, 250);
-          });
-        } else {
-          stockfishBlack.postMessage("position fen " + fen);
-          stockfishBlack.postMessage("go movetime 500");
-        }
-      }
-    }
-
-    /* ----------------------- UI Mode Handling & Game Reset ----------------------- */
-    function updateUI() {
-  var mode = document.getElementById("modeSelect").value;
-  currentMode = mode;
-  document.getElementById("single-difficulty").style.display = (mode === "stockfish") ? "inline" : "none";
-  document.getElementById("losing-depth").style.display = (mode === "losing") ? "inline" : "none";
-  document.getElementById("engine-levels").style.display = (mode === "enginevengine") ? "inline" : "none";
-  document.getElementById("setup-controls").style.display = (mode === "setup") ? "inline" : "none";
-  document.getElementById("startEngineVsEngine").style.display = (mode === "enginevengine") ? "inline-block" : "none";
-  updateWorstDepthControlVisibility();
-  document.getElementById("piece-palette").style.display = (mode === "setup") ? "block" : "none";
-  if (mode === "setup") {
-    initializeSetupBoard();
-    createPiecePalette();
-  }
-  // If switching away from setup and customFEN exists, reload it,
-  // but do not force-reload it in engine-vs-engine mode.
-  if (mode !== "setup" && mode !== "enginevengine" && customFEN) {
-    game.load(customFEN);
-    drawBoard();
-  }
-}
-    function updateWorstDepthControlVisibility() {
-      var mode = currentMode;
-      var show = false;
-      if (mode === "stockfish") {
-        if (document.getElementById("difficultySelect").value === "-1") show = true;
-      } else if (mode === "enginevengine") {
-        if (document.getElementById("whiteDifficultySelect").value === "-1" ||
-            document.getElementById("blackDifficultySelect").value === "-1") {
-          show = true;
-        }
-      }
-      document.getElementById("worst-depth-control").style.display = show ? "inline" : "none";
-    }
-    document.getElementById("modeSelect").addEventListener("change", function() {
-      updateUI();
-      resetGame();
-    });
-    document.getElementById("difficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
-    document.getElementById("whiteDifficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
-    document.getElementById("blackDifficultySelect").addEventListener("change", updateWorstDepthControlVisibility);
-    document.getElementById("finishSetupButton").addEventListener("click", finishSetup);
-    document.getElementById("startEngineVsEngine").addEventListener("click", function() {
-      initEngineVsEngine();
-    });
-    document.getElementById("resetButton").addEventListener("click", resetGame);
-
-    // Modified resetGame: if a custom position (customFEN) exists and we're not in setup mode, reload it.
-    function resetGame() {
-      if (customFEN && currentMode !== "setup") {
-        game.load(customFEN);
+    function autoPlayEngineVsEngine(){
+      if(game.game_over()){ updateStatus(); return; }
+      var fen=game.fen();
+      var turn=game.turn();
+      var diff= parseInt(document.getElementById(turn==='w'?'whiteDifficultySelect':'blackDifficultySelect').value,10);
+      if(diff===-1){
+        var wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+        chooseWorstMoveUsingStockfish(wd).then(function(mv){
+          if(mv) game.move(mv);
+          drawBoard();
+          setTimeout(autoPlayEngineVsEngine,250);
+        });
       } else {
-        game.reset();
-      }
-      selectedSquare = null;
-      drawBoard();
-      if (currentMode === "enginevengine") {
-        setTimeout(autoPlayEngineVsEngine, 250);
+        var worker = turn==='w'?stockfishWhite:stockfishBlack;
+        worker.postMessage('position fen '+fen);
+        worker.postMessage('go movetime 500');
       }
     }
-    // Initialize board and UI on load.
+
+    // === UI logic ===
+    function updateWorstDepthControlVisibility(){
+      var m=currentMode;
+      var show=false;
+      if(m==='stockfish' && document.getElementById('difficultySelect').value==='-1') show=true;
+      if(m==='enginevengine' && (document.getElementById('whiteDifficultySelect').value==='-1' || document.getElementById('blackDifficultySelect').value==='-1')) show=true;
+      document.getElementById('worst-depth-control').style.display = show?'inline':'none';
+    }
+
+    function updateUI(){
+      var m=document.getElementById('modeSelect').value;
+      currentMode=m;
+      // show/hide groups
+      document.getElementById('single-difficulty').style.display = m==='stockfish'?'inline':'none';
+      document.getElementById('losing-depth').style.display = m==='losing'?'inline':'none';
+      document.getElementById('engine-levels').style.display = m==='enginevengine'?'inline':'none';
+      document.getElementById('setup-controls').style.display = m==='setup'?'inline':'none';
+      document.getElementById('startEngineVsEngine').style.display = m==='enginevengine'?'inline-block':'none';
+      document.getElementById('piece-palette').style.display = m==='setup'?'block':'none';
+      updateWorstDepthControlVisibility();
+
+      if(m==='setup'){
+        initializeSetupBoard();
+        createPiecePalette();
+      }
+      // when leaving setup (but not entering enginevengine), restore custom position if any
+      if(m!=='setup' && m!=='enginevengine' && customFEN){
+        game.load(customFEN);
+        drawBoard();
+      }
+    }
+
+    function resetGame(){
+      if(customFEN && currentMode!=='setup') game.load(customFEN);
+      else game.reset();
+      selectedSquare=null; drawBoard();
+      if(currentMode==='enginevengine') setTimeout(autoPlayEngineVsEngine,250);
+    }
+
+    // === Event listeners ===
+    document.getElementById('modeSelect').addEventListener('change',function(){
+      updateUI(); resetGame();
+    });
+    document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+    document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+    document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+    document.getElementById('finishSetupButton').addEventListener('click',finishSetup);
+    document.getElementById('startEngineVsEngine').addEventListener('click',initEngineVsEngine);
+    document.getElementById('resetButton').addEventListener('click',resetGame);
+
+    // === Init on load ===
     createBoard();
     drawBoard();
     updateUI();
