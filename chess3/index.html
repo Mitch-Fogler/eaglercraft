@@ -4,13 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Mitch's Sigma Chess</title>
-
-  <!-- chessboard.js CSS via CDNJS -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"
-        integrity="sha512-LN0tXHnDZv6mP9n1TblY8xU1C6sKfiZPOy+/PYPalLOhZW4Kk1iCFJvWgK5ZYaS+FtqlhKUhFG4fpU7Y2nx7Yg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"/>
-
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; margin-bottom: 10px; }
@@ -18,6 +11,7 @@
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
     #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
+    /* Flex container: board + analysis panel */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
     #analysis-panel {
       width: 260px; margin-left: 10px; font-size: 14px; line-height: 1.3;
@@ -27,11 +21,19 @@
     #analysis-panel select,
     #analysis-panel input { margin: 4px 0; font-size: 14px; }
 
-    #chessboard { width: 480px; }
+    /* Chessboard table */
+    #chessboard { margin: 0; }
+    table { border-collapse: collapse; }
+    td {
+      width: 60px; height: 60px;
+      text-align: center; vertical-align: middle;
+      font-size: 42px; cursor: pointer; user-select: none;
+    }
     .light { background: #f0d9b5; }
     .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
 
+    /* Analysis list */
     #pv-list { max-height: 300px; overflow-y: auto; padding: 0; list-style: none; margin: 4px 0; }
     #pv-list li { padding: 2px 4px; cursor: pointer; }
     #pv-list li:hover { background: #eef; }
@@ -41,7 +43,6 @@
 <body>
   <h1>Mitch's Sigma Chess</h1>
 
-  <!-- Mode selector -->
   <div id="game-options">
     <label>Game Mode:</label>
     <select id="modeSelect">
@@ -54,30 +55,28 @@
     </select>
   </div>
 
-  <!-- Board + Analysis Panel -->
   <div id="board-container">
     <div id="chessboard"></div>
     <div id="analysis-panel">
-      <div class="button-group">
+      <div>
         <button id="stopAnalysis" disabled>Stop Analysis</button>
         <button id="hideAnalysis">Hide</button>
       </div>
       <div>
-        <label for="depthSelect">Depth:</label>
+        <label>Depth:</label>
         <select id="depthSelect">
           <option>8</option><option>10</option><option>12</option><option>14</option>
           <option selected>16</option><option>18</option><option>20</option><option>22</option><option>24</option>
         </select>
       </div>
       <div>
-        <label># Lines:</label>
+        <label>#Lines:</label>
         <button id="decreaseLines">–</button>
         <span id="linesCount">3</span>
         <button id="increaseLines">+</button>
       </div>
       <div>
-        <label>Eval:</label>
-        <span id="numericEval">0.00</span>
+        <label>Eval:</label> <span id="numericEval">0.00</span>
       </div>
       <ul id="pv-list">
         <li class="pv-header">Principal Variations:</li>
@@ -97,90 +96,207 @@
   <div id="status"></div>
   <div id="version">v.1.8</div>
 
-  <!-- 1) jQuery (required by chessboard.js) -->
-  <script src="https://code.jquery.com/jquery-3.5.1.min.js"
-          integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
-          crossorigin="anonymous"></script>
-  <!-- 2) chessboard.js JS via CDNJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"
-          integrity="sha512-R+IopO7ZIbCEuQUMtGPYfmZ+dc0xpP0hO8B0SpvWH1uxfr4Kd6z0Hsb+o8C/l6jkgkKXGB0k0W1cVYuIEGjVhw=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <!-- 3) chess.js for move legality, FEN/PGN, etc. -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"
-          integrity="sha512-nFu8gkh1pW7GkXoVexJxOpUk0szbYHF8jf0fi4nXVgIyH+mREeR0uVlnhzjD+YHmMC+3R4kV0Fwd/ejVy+RrgQ=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
-  <!-- Your main script -->
+  <!-- chess.js for game logic -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-    // === Globals ===
+    // --- Globals ---
     const game = new Chess();
-    let board, engine, stockfishWhite, stockfishBlack;
-    let isAnalyzing = false, customFEN = null;
+    let boardDiv = document.getElementById('chessboard');
+    let selectedSquare = null;
+    let mode = 'twoplayer';
+    let humanColor = 'w';
+    let customFEN = null;
 
-    // === Initialize Board ===
-    function initBoard() {
-      board = Chessboard('chessboard', {
-        draggable: true,
-        position: 'start',
-        pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png',
-        onDrop: onMove
-      });
+    // Analysis engine
+    let engine = null;
+    let isAnalyzing = false;
+
+    // --- Board Setup ---
+    const files = ['a','b','c','d','e','f','g','h'];
+
+    function createBoard() {
+      const tbl = document.createElement('table');
+      for (let r = 8; r >= 1; r--) {
+        const tr = document.createElement('tr');
+        for (let f = 0; f < 8; f++) {
+          const td = document.createElement('td');
+          const sq = files[f] + r;
+          td.id = sq;
+          td.className = ((f + r) % 2) ? 'light' : 'dark';
+          td.addEventListener('click', onCellClick);
+          tr.appendChild(td);
+        }
+        tbl.appendChild(tr);
+      }
+      boardDiv.innerHTML = '';
+      boardDiv.appendChild(tbl);
+    }
+
+    function drawBoard() {
+      const b = game.board();
+      for (let r = 8; r >= 1; r--) {
+        for (let f = 0; f < 8; f++) {
+          const sq = files[f] + r;
+          const td = document.getElementById(sq);
+          const piece = b[8-r][f];
+          td.textContent = piece ? unicode(piece) : '';
+          td.classList.remove('selected');
+        }
+      }
       updateStatus();
     }
 
-    // === Status ===
+    function unicode(p) {
+      const map = {
+        p:{w:'♙',b:'♟'},
+        r:{w:'♖',b:'♜'},
+        n:{w:'♘',b:'♞'},
+        b:{w:'♗',b:'♝'},
+        q:{w:'♕',b:'♛'},
+        k:{w:'♔',b:'♚'}
+      };
+      return map[p.type][p.color];
+    }
+
+    // --- Status ---
     function updateStatus() {
       let s = '';
       if (game.in_checkmate()) {
-        s = `Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
+        s = 'Game over: ' + (game.turn()==='w' ? 'Black' : 'White') + ' wins.';
       } else if (game.in_draw()) {
-        s = 'Game over: drawn position.';
+        s = 'Game over: drawn.';
       } else {
-        s = `${game.turn()==='w'?'White':'Black'} to move.` +
-            (game.in_check() ? ' Check!' : '');
+        s = (game.turn()==='w' ? 'White' : 'Black') + ' to move.';
+        if (game.in_check()) s += ' Check!';
       }
       document.getElementById('status').textContent = s;
     }
 
-    // === Move Handling ===
-    function onMove(src, dst) {
-      const m = game.move({ from: src, to: dst, promotion: 'q' });
-      if (!m) return 'snapback';
-      board.position(game.fen());
-      updateStatus();
+    // --- Cell click / move ---    
+    function onCellClick(e) {
+      const sq = e.target.id;
+      if (mode==='analysis') {
+        // In analysis/setup, let user lay pieces
+        boardSetup[sq] = selectedPalettePiece;
+        drawSetupBoard();
+        return;
+      }
+      if (mode==='enginevengine') return; // no human moves
+      if (!selectedSquare) {
+        const pc = game.get(sq);
+        if (!pc || pc.color !== game.turn()) return;
+        if ((mode==='stockfish'||mode==='losing') && pc.color!==humanColor) return;
+        selectedSquare = sq;
+        e.target.classList.add('selected');
+      } else {
+        if (sq===selectedSquare) {
+          e.target.classList.remove('selected');
+          selectedSquare = null;
+          return;
+        }
+        // handle promotion
+        let promo='q';
+        const pc = game.get(selectedSquare);
+        if (pc && pc.type==='p' &&
+           ((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))) {
+          const c = prompt('Promote to (q,r,b,n):','q');
+          if (c && 'qrbn'.includes(c.toLowerCase())) promo=c.toLowerCase();
+        }
+        const mv = game.move({from:selectedSquare, to:sq, promotion:promo});
+        if (!mv) alert('Invalid');
+        selectedSquare = null;
+        drawBoard();
+        if ((mode==='stockfish'||mode==='losing') && !game.game_over() && game.turn()!==humanColor) {
+          setTimeout(() => {
+            if (mode==='stockfish') {
+              const diff = +document.getElementById('depthSelect').value;
+              askEngineMove(diff);
+            } else {
+              const depth = +document.getElementById('depthSelect').value;
+              chooseWorst(depth).then(mv2=>{ if(mv2) game.move(mv2); drawBoard(); });
+            }
+          }, 200);
+        }
+      }
     }
 
-    // === Mode Switch ===
+    // --- Mode switch ---
     document.getElementById('modeSelect').addEventListener('change', () => {
-      const mode = document.getElementById('modeSelect').value;
+      mode = document.getElementById('modeSelect').value;
       document.getElementById('analysis-panel').style.display =
-        mode === 'analysis' ? 'block' : 'none';
-      if (mode === 'analysis') startAnalysis();
+        mode==='analysis' ? 'block' : 'none';
+      if (mode==='analysis') startAnalysis();
       else stopAnalysis();
       resetGame();
     });
 
-    // === Analysis Controls ===
+    // --- Engine init ---
+    function initEngine() {
+      if (engine) engine.terminate();
+      engine = new Worker('stockfish.js');
+      engine.onmessage = onEngineMsg;
+      engine.postMessage('uci');
+    }
+
+    // --- Ask best move ---
+    function askEngineMove(depth=16) {
+      engine.postMessage('ucinewgame');
+      engine.postMessage('position fen ' + game.fen());
+      engine.postMessage('go depth ' + depth);
+    }
+
+    // --- Evaluate worst move ---
+    function evaluateFen(fen, depth) {
+      return new Promise(r => {
+        const w = new Worker('stockfish.js');
+        let score = null;
+        w.onmessage = e => {
+          const line = e.data;
+          if (line.includes('score cp')) {
+            const m = line.match(/score cp (-?\d+)/);
+            if (m) score = +m[1];
+          }
+          if (line.startsWith('bestmove')) {
+            w.terminate();
+            r(score);
+          }
+        };
+        w.postMessage('uci');
+        setTimeout(()=>{
+          w.postMessage('position fen ' + fen);
+          w.postMessage('go depth ' + depth);
+        },200);
+      });
+    }
+    function chooseWorst(depth=16) {
+      const moves = game.moves({verbose:true});
+      const evals = moves.map(m=>{
+        const c = new Chess(game.fen());
+        c.move(m);
+        return evaluateFen(c.fen(), depth).then(sc=>({move:m, score:sc}));
+      });
+      return Promise.all(evals).then(arr=>{
+        return arr.reduce((a,b)=>b.score>a.score?b:a).move;
+      });
+    }
+
+    // --- Analysis panel ---
     document.getElementById('stopAnalysis').onclick = stopAnalysis;
     document.getElementById('hideAnalysis').onclick = () => {
       document.getElementById('analysis-panel').style.display = 'none';
       stopAnalysis();
     };
-    document.getElementById('increaseLines').onclick = () => {
-      let n = +document.getElementById('linesCount').textContent;
-      if (n < 10) document.getElementById('linesCount').textContent = ++n;
-      if (isAnalyzing) sendAnalysis();
-    };
-    document.getElementById('decreaseLines').onclick = () => {
-      let n = +document.getElementById('linesCount').textContent;
-      if (n > 1) document.getElementById('linesCount').textContent = --n;
-      if (isAnalyzing) sendAnalysis();
-    };
-    document.getElementById('depthSelect').onchange = () => {
-      if (isAnalyzing) sendAnalysis();
-    };
+    document.getElementById('increaseLines').onclick = ()=>{ changeLines(1); };
+    document.getElementById('decreaseLines').onclick = ()=>{ changeLines(-1); };
+    document.getElementById('depthSelect').onchange = ()=>{ if(isAnalyzing) sendAnalysis(); };
 
-    // === Start/Stop Analysis ===
+    let pvCount = 3;
+    function changeLines(d) {
+      pvCount = Math.min(10, Math.max(1, pvCount + d));
+      document.getElementById('linesCount').textContent = pvCount;
+      if (isAnalyzing) sendAnalysis();
+    }
+
     function startAnalysis() {
       initEngine();
       isAnalyzing = true;
@@ -193,100 +309,124 @@
       if (engine) engine.postMessage('stop');
     }
 
-    // === UCI MultiPV ===
     function sendAnalysis() {
       engine.postMessage('ucinewgame');
-      engine.postMessage(`position fen ${game.fen()}`);
-      const depth = document.getElementById('depthSelect').value;
-      const lines = document.getElementById('linesCount').textContent;
-      engine.postMessage(`setoption name MultiPV value ${lines}`);
+      engine.postMessage('position fen ' + game.fen());
+      engine.postMessage('setoption name MultiPV value ' + pvCount);
       engine.postMessage('setoption name UCI_AnalyseMode value true');
-      engine.postMessage(`go depth ${depth}`);
+      const d = +document.getElementById('depthSelect').value;
+      engine.postMessage('go depth ' + d);
     }
 
-    // === Parse Engine Output ===
-    function onEngineMessage(e) {
+    function onEngineMsg(e) {
       const line = e.data;
-      if (line.startsWith('info')) {
-        const t = line.split(' ');
-        const mpvI = t.indexOf('multipv'), scI = t.indexOf('score');
-        if (mpvI>-1 && scI>-1 && t[scI+1]==='cp') {
-          const mpv = +t[mpvI+1], cp = +t[scI+2];
-          if (mpv === 1) {
-            const pawns = (cp/100).toFixed(2);
-            document.getElementById('numericEval').textContent = (pawns>=0?'+':'') + pawns;
-          }
-          const pvI = t.indexOf('pv');
-          if (pvI>-1) {
-            const moves = t.slice(pvI+1);
-            updatePVList(mpv, cp, moves);
-          }
+      if (!line.startsWith('info')) return;
+      const t = line.split(' ');
+      const mpvI = t.indexOf('multipv');
+      const scI  = t.indexOf('score');
+      const pvI  = t.indexOf('pv');
+      if (mpvI>-1 && scI>-1 && pvI>-1) {
+        const mpv = +t[mpvI+1];
+        const cp  = +t[scI+2];
+        const moves = t.slice(pvI+1);
+        if (mpv===1) {
+          document.getElementById('numericEval')
+            .textContent = (cp>=0?'+':'')+(cp/100).toFixed(2);
         }
+        updatePV(mpv, cp, moves);
       }
     }
 
-    // === Display PV Lines ===
-    function updatePVList(num, cp, moves) {
+    function updatePV(num, cp, moves) {
       const ul = document.getElementById('pv-list');
       let li = ul.querySelector(`li[data-pv="${num}"]`);
       if (!li) {
         li = document.createElement('li');
         li.dataset.pv = num;
+        li.onclick = ()=>{ playLine(moves); };
         ul.appendChild(li);
-        li.onclick = () => {
-          game.reset();
-          moves.forEach(mv=>game.move(mv));
-          board.position(game.fen());
-          updateStatus();
-        };
       }
-      const pawns = (cp/100).toFixed(2);
-      li.textContent = `${num}. ${moves.join(' ')} (${pawns})`;
+      li.textContent = `${num}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
     }
 
-    // === Stockfish Worker ===
-    function initEngine() {
-      if (engine) engine.terminate();
-      engine = new Worker('stockfish.js');
-      engine.onmessage = onEngineMessage;
-      engine.postMessage('uci');
+    function playLine(moves) {
+      game.reset();
+      moves.forEach(mv=>game.move(mv));
+      drawBoard();
     }
 
-    // === Import / Setup / Play ===
-    document.getElementById('importFEN').onclick = () => {
+    // --- Import/Setup/Play ---
+    document.getElementById('importFEN').onclick = ()=>{
       const fen = prompt('Paste FEN:');
-      if (fen && game.load(fen)) board.position(game.fen());
+      if (fen && game.load(fen)) drawBoard();
       else alert('Invalid FEN');
     };
-    document.getElementById('importPGN').onclick = () => {
+    document.getElementById('importPGN').onclick = ()=>{
       const pgn = prompt('Paste PGN:');
-      try { game.load_pgn(pgn); board.position(game.fen()); }
+      try { game.load_pgn(pgn); drawBoard(); }
       catch { alert('Invalid PGN'); }
     };
-    document.getElementById('setupPosition').onclick = () => {
-      document.getElementById('modeSelect').value = 'setup';
+    document.getElementById('setupPosition').onclick = ()=>{
+      document.getElementById('modeSelect').value='setup';
       document.getElementById('modeSelect').dispatchEvent(new Event('change'));
     };
-    document.getElementById('playPosition').onclick = () => {
+    document.getElementById('playPosition').onclick = ()=>{
       customFEN = game.fen();
-      document.getElementById('modeSelect').value = 'twoplayer';
+      document.getElementById('modeSelect').value='twoplayer';
       document.getElementById('modeSelect').dispatchEvent(new Event('change'));
     };
 
-    // === Reset Game ===
-    function resetGame() {
-      if (customFEN && document.getElementById('modeSelect').value!=='setup')
-        game.load(customFEN);
-      else game.reset();
-      board.position(game.fen());
-      updateStatus();
+    // --- Setup Mode ---
+    let boardSetup = {}, selectedPalettePiece = '';
+    function initializeSetupBoard(){
+      boardSetup={};
+      for(let r=1;r<=8;r++) for(let f of files) boardSetup[f+r]='';
+      drawSetup();
+    }
+    function drawSetup(){
+      for(let r=8;r>=1;r--){
+        for(let f=0;f<8;f++){
+          const sq = files[f]+r, td=document.getElementById(sq);
+          const code = boardSetup[sq];
+          td.textContent = code ? unicode({type:code[1],color:code[0]}) : '';
+        }
+      }
+    }
+    function makeFEN(turn){
+      const parts=[];
+      for(let r=8;r>=1;r--){
+        let row='',empty=0;
+        for(let f=0;f<8;f++){
+          const c=boardSetup[files[f]+r];
+          if(!c) empty++;
+          else{
+            if(empty){row+=empty;empty=0;}
+            let L=c[1];
+            row += (c[0]==='w'?L.toUpperCase():L.toLowerCase());
+          }
+        }
+        if(empty) row+=empty;
+        parts.push(row);
+      }
+      return parts.join('/')+' '+turn+' - - 0 1';
     }
 
-    // === On Load ===
-    window.onload = () => {
-      initBoard();
+    // --- Reset Game ---
+    function resetGame() {
+      if (customFEN && mode!=='setup')
+        game.load(customFEN);
+      else
+        game.reset();
+      createBoard(); drawBoard();
+      if (mode==='enginevengine') setTimeout(runEngineVsEngine,250);
+      if (mode==='setup') initializeSetupBoard();
+    }
+
+    // === On load ===
+    window.onload = ()=>{
+      createBoard(); drawBoard();
       updateStatus();
-      document.getElementById('modeSelect').value = 'twoplayer';
+      document.getElementById('modeSelect').value='twoplayer';
     };
   </script>
 </body>
