@@ -11,7 +11,6 @@
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
     #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
-    /* Flex container: board + analysis panel */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
     #analysis-panel {
       width: 260px; margin-left: 10px; font-size: 14px; line-height: 1.3;
@@ -21,7 +20,6 @@
     #analysis-panel select,
     #analysis-panel input { margin: 4px 0; font-size: 14px; }
 
-    /* Chessboard table */
     #chessboard { margin: 0; }
     table { border-collapse: collapse; }
     td {
@@ -33,7 +31,6 @@
     .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
 
-    /* Analysis list */
     #pv-list { max-height: 300px; overflow-y: auto; padding: 0; list-style: none; margin: 4px 0; }
     #pv-list li { padding: 2px 4px; cursor: pointer; }
     #pv-list li:hover { background: #eef; }
@@ -44,14 +41,14 @@
   <h1>Mitch's Sigma Chess</h1>
 
   <div id="game-options">
-    <label>Game Mode:</label>
+    <label>Mode:</label>
     <select id="modeSelect">
       <option value="twoplayer">Two Player</option>
-      <option value="stockfish">Play Against Stockfish</option>
+      <option value="stockfish">vs Stockfish</option>
       <option value="losing">Losing Mode</option>
       <option value="enginevengine">Engine vs Engine</option>
       <option value="setup">Setup Position</option>
-      <option value="analysis">Analysis Mode</option>
+      <option value="analysis">Analysis</option>
     </select>
   </div>
 
@@ -59,14 +56,14 @@
     <div id="chessboard"></div>
     <div id="analysis-panel">
       <div>
-        <button id="stopAnalysis" disabled>Stop Analysis</button>
+        <button id="stopAnalysis" disabled>Stop</button>
         <button id="hideAnalysis">Hide</button>
       </div>
       <div>
         <label>Depth:</label>
         <select id="depthSelect">
           <option>8</option><option>10</option><option>12</option><option>14</option>
-          <option selected>16</option><option>18</option><option>20</option><option>22</option><option>24</option>
+          <option selected>16</option><option>18</option><option>20</option>
         </select>
       </div>
       <div>
@@ -75,9 +72,7 @@
         <span id="linesCount">3</span>
         <button id="increaseLines">+</button>
       </div>
-      <div>
-        <label>Eval:</label> <span id="numericEval">0.00</span>
-      </div>
+      <div><label>Eval:</label> <span id="numericEval">0.00</span></div>
       <ul id="pv-list">
         <li class="pv-header">Principal Variations:</li>
       </ul>
@@ -87,8 +82,8 @@
         <button id="importPGN">Import PGN</button>
       </div>
       <div>
-        <button id="setupPosition">Setup Position</button>
-        <button id="playPosition">Play Position</button>
+        <button id="setupPosition">Setup</button>
+        <button id="playPosition">Play</button>
       </div>
     </div>
   </div>
@@ -96,289 +91,222 @@
   <div id="status"></div>
   <div id="version">v.1.8</div>
 
-  <!-- chess.js for game logic -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-    // --- Globals ---
+    // Globals
     const game = new Chess();
-    let boardDiv = document.getElementById('chessboard');
-    let selectedSquare = null;
-    let mode = 'twoplayer';
-    let humanColor = 'w';
-    let customFEN = null;
-
-    // Analysis engine
-    let engine = null;
-    let isAnalyzing = false;
-
-    // --- Board Setup ---
     const files = ['a','b','c','d','e','f','g','h'];
+    let mode = 'twoplayer', humanColor='w', customFEN=null;
+    let selectedSquare=null;
+    let engine=null, isAnalyzing=false, pvCount=3;
 
-    function createBoard() {
-      const tbl = document.createElement('table');
-      for (let r = 8; r >= 1; r--) {
-        const tr = document.createElement('tr');
-        for (let f = 0; f < 8; f++) {
-          const td = document.createElement('td');
-          const sq = files[f] + r;
-          td.id = sq;
-          td.className = ((f + r) % 2) ? 'light' : 'dark';
-          td.addEventListener('click', onCellClick);
-          tr.appendChild(td);
+    // Build board
+    function createBoard(){
+      const d=document.getElementById('chessboard');
+      let html='<table>';
+      for(let r=8;r>=1;r--){
+        html+='<tr>';
+        for(let f=0;f<8;f++){
+          const sq=files[f]+r;
+          html+=`<td id="${sq}" class="${(f+r)%2?'light':'dark'}"></td>`;
         }
-        tbl.appendChild(tr);
+        html+='</tr>';
       }
-      boardDiv.innerHTML = '';
-      boardDiv.appendChild(tbl);
+      html+='</table>';
+      d.innerHTML=html;
+      document.querySelectorAll('#chessboard td').forEach(td=>{
+        td.onclick=onCellClick;
+      });
     }
 
-    function drawBoard() {
-      const b = game.board();
-      for (let r = 8; r >= 1; r--) {
-        for (let f = 0; f < 8; f++) {
-          const sq = files[f] + r;
-          const td = document.getElementById(sq);
-          const piece = b[8-r][f];
-          td.textContent = piece ? unicode(piece) : '';
+    // Draw pieces
+    function drawBoard(){
+      const b=game.board();
+      for(let r=8;r>=1;r--){
+        for(let f=0;f<8;f++){
+          const sq=files[f]+r, td=document.getElementById(sq);
+          const p=b[8-r][f];
+          td.textContent = p? unicode(p):'';
           td.classList.remove('selected');
         }
       }
       updateStatus();
     }
 
-    function unicode(p) {
-      const map = {
-        p:{w:'♙',b:'♟'},
-        r:{w:'♖',b:'♜'},
-        n:{w:'♘',b:'♞'},
-        b:{w:'♗',b:'♝'},
-        q:{w:'♕',b:'♛'},
-        k:{w:'♔',b:'♚'}
-      };
-      return map[p.type][p.color];
+    function unicode(p){
+      const m={p:{w:'♙',b:'♟'},r:{w:'♖',b:'♜'},
+               n:{w:'♘',b:'♞'},b:{w:'♗',b:'♝'},
+               q:{w:'♕',b:'♛'},k:{w:'♔',b:'♚'}};
+      return m[p.type][p.color];
     }
 
-    // --- Status ---
-    function updateStatus() {
-      let s = '';
-      if (game.in_checkmate()) {
-        s = 'Game over: ' + (game.turn()==='w' ? 'Black' : 'White') + ' wins.';
-      } else if (game.in_draw()) {
-        s = 'Game over: drawn.';
+    // Status
+    function updateStatus(){
+      let s='';
+      if(game.in_checkmate()){
+        s=`Game over: ${game.turn()==='w'?'Black':'White'} wins.`;
+      } else if(game.in_draw()){
+        s='Game over: drawn.';
       } else {
-        s = (game.turn()==='w' ? 'White' : 'Black') + ' to move.';
-        if (game.in_check()) s += ' Check!';
+        s=`${game.turn()==='w'?'White':'Black'} to move.` + (game.in_check()?' Check!':'');
       }
-      document.getElementById('status').textContent = s;
+      document.getElementById('status').textContent=s;
     }
 
-    // --- Cell click / move ---    
-    function onCellClick(e) {
-      const sq = e.target.id;
-      if (mode==='analysis') {
-        // In analysis/setup, let user lay pieces
-        boardSetup[sq] = selectedPalettePiece;
-        drawSetupBoard();
+    // Cell click
+    function onCellClick(e){
+      const sq=e.target.id;
+      if(mode==='analysis' || mode==='setup'){
+        boardSetupMode(sq);
         return;
       }
-      if (mode==='enginevengine') return; // no human moves
-      if (!selectedSquare) {
-        const pc = game.get(sq);
-        if (!pc || pc.color !== game.turn()) return;
-        if ((mode==='stockfish'||mode==='losing') && pc.color!==humanColor) return;
-        selectedSquare = sq;
-        e.target.classList.add('selected');
+      if(mode==='enginevengine') return;
+      if(!selectedSquare){
+        const pc=game.get(sq);
+        if(!pc||pc.color!==game.turn()) return;
+        if((mode==='stockfish'||mode==='losing') && pc.color!==humanColor) return;
+        selectedSquare=sq; e.target.classList.add('selected');
       } else {
-        if (sq===selectedSquare) {
+        if(sq===selectedSquare){
           e.target.classList.remove('selected');
-          selectedSquare = null;
-          return;
+          selectedSquare=null; return;
         }
-        // handle promotion
-        let promo='q';
-        const pc = game.get(selectedSquare);
-        if (pc && pc.type==='p' &&
-           ((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))) {
-          const c = prompt('Promote to (q,r,b,n):','q');
-          if (c && 'qrbn'.includes(c.toLowerCase())) promo=c.toLowerCase();
+        let promo='q', pc=game.get(selectedSquare);
+        if(pc && pc.type==='p' &&
+           ((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))){
+          const c=prompt('Promote to (q,r,b,n):','q');
+          if(c&&'qrbn'.includes(c.toLowerCase())) promo=c;
         }
-        const mv = game.move({from:selectedSquare, to:sq, promotion:promo});
-        if (!mv) alert('Invalid');
-        selectedSquare = null;
+        const mv=game.move({from:selectedSquare,to:sq,promotion:promo});
+        if(!mv) alert('Invalid');
+        selectedSquare=null;
         drawBoard();
-        if ((mode==='stockfish'||mode==='losing') && !game.game_over() && game.turn()!==humanColor) {
-          setTimeout(() => {
-            if (mode==='stockfish') {
-              const diff = +document.getElementById('depthSelect').value;
-              askEngineMove(diff);
-            } else {
-              const depth = +document.getElementById('depthSelect').value;
-              chooseWorst(depth).then(mv2=>{ if(mv2) game.move(mv2); drawBoard(); });
-            }
-          }, 200);
+        if((mode==='stockfish'||mode==='losing') && !game.game_over() && game.turn()!==humanColor){
+          setTimeout(()=>engineMove(),200);
         }
       }
     }
 
-    // --- Mode switch ---
-    document.getElementById('modeSelect').addEventListener('change', () => {
-      mode = document.getElementById('modeSelect').value;
-      document.getElementById('analysis-panel').style.display =
-        mode==='analysis' ? 'block' : 'none';
-      if (mode==='analysis') startAnalysis();
-      else stopAnalysis();
+    // Mode switch
+    document.getElementById('modeSelect').onchange=()=>{
+      mode=document.getElementById('modeSelect').value;
+      document.getElementById('analysis-panel').style.display=mode==='analysis'?'block':'none';
+      if(mode==='analysis') startAnalysis(); else stopAnalysis();
       resetGame();
-    });
+    };
 
-    // --- Engine init ---
-    function initEngine() {
-      if (engine) engine.terminate();
-      engine = new Worker('stockfish.js');
-      engine.onmessage = onEngineMsg;
+    // Engine move
+    function engineMove(){
+      if(mode==='stockfish'){
+        askEngine();
+      } else if(mode==='losing'){
+        chooseWorst().then(mv=>{
+          if(mv) game.move(mv);
+          drawBoard();
+        });
+      }
+    }
+
+    // Stockfish
+    function initEngine(){
+      if(engine) engine.terminate();
+      engine=new Worker('stockfish.js');
+      engine.onmessage=e=>onEngineMsg(e.data);
       engine.postMessage('uci');
     }
-
-    // --- Ask best move ---
-    function askEngineMove(depth=16) {
+    function askEngine(){
+      const d=+document.getElementById('depthSelect').value;
       engine.postMessage('ucinewgame');
-      engine.postMessage('position fen ' + game.fen());
-      engine.postMessage('go depth ' + depth);
+      engine.postMessage('position fen '+game.fen());
+      engine.postMessage('go depth '+d);
+    }
+    function onEngineMsg(line){
+      if(!line.startsWith('bestmove')) return;
+      const mv=line.split(' ')[1];
+      if(mv!=='(none)'){
+        const from=mv.substr(0,2), to=mv.substr(2,2), pr=mv[4];
+        game.move({from,to,promotion:pr||'q'});
+        drawBoard();
+      }
     }
 
-    // --- Evaluate worst move ---
-    function evaluateFen(fen, depth) {
-      return new Promise(r => {
-        const w = new Worker('stockfish.js');
-        let score = null;
-        w.onmessage = e => {
-          const line = e.data;
-          if (line.includes('score cp')) {
-            const m = line.match(/score cp (-?\d+)/);
-            if (m) score = +m[1];
+    // Worst move
+    function evaluateFen(fen,depth){
+      return new Promise(r=>{
+        const w=new Worker('stockfish.js');
+        let score=null;
+        w.onmessage=e=>{
+          const l=e.data;
+          if(l.includes('score cp')){
+            const m=l.match(/score cp (-?\d+)/);
+            if(m) score=+m[1];
           }
-          if (line.startsWith('bestmove')) {
-            w.terminate();
-            r(score);
+          if(l.startsWith('bestmove')){
+            w.terminate(); r(score);
           }
         };
         w.postMessage('uci');
         setTimeout(()=>{
-          w.postMessage('position fen ' + fen);
-          w.postMessage('go depth ' + depth);
+          w.postMessage('position fen '+fen);
+          w.postMessage('go depth '+depth);
         },200);
       });
     }
-    function chooseWorst(depth=16) {
-      const moves = game.moves({verbose:true});
-      const evals = moves.map(m=>{
-        const c = new Chess(game.fen());
-        c.move(m);
-        return evaluateFen(c.fen(), depth).then(sc=>({move:m, score:sc}));
+    function chooseWorst(){
+      const depth=+document.getElementById('depthSelect').value;
+      const moves=game.moves({verbose:true});
+      const ps=moves.map(m=>{
+        const c=new Chess(game.fen()); c.move(m);
+        return evaluateFen(c.fen(),depth).then(sc=>({m,sc}));
       });
-      return Promise.all(evals).then(arr=>{
-        return arr.reduce((a,b)=>b.score>a.score?b:a).move;
-      });
+      return Promise.all(ps).then(arr=>arr.reduce((a,b)=>b.sc>a.sc?b:a).m);
     }
 
-    // --- Analysis panel ---
-    document.getElementById('stopAnalysis').onclick = stopAnalysis;
-    document.getElementById('hideAnalysis').onclick = () => {
-      document.getElementById('analysis-panel').style.display = 'none';
-      stopAnalysis();
-    };
-    document.getElementById('increaseLines').onclick = ()=>{ changeLines(1); };
-    document.getElementById('decreaseLines').onclick = ()=>{ changeLines(-1); };
-    document.getElementById('depthSelect').onchange = ()=>{ if(isAnalyzing) sendAnalysis(); };
-
-    let pvCount = 3;
-    function changeLines(d) {
-      pvCount = Math.min(10, Math.max(1, pvCount + d));
-      document.getElementById('linesCount').textContent = pvCount;
-      if (isAnalyzing) sendAnalysis();
+    // Engine vs Engine
+    let wf, bf;
+    function startEngineVsEngine(){
+      initEngineWhite(); initEngineBlack();
+      runEngineVsEngine();
     }
-
-    function startAnalysis() {
-      initEngine();
-      isAnalyzing = true;
-      document.getElementById('stopAnalysis').disabled = false;
-      sendAnalysis();
+    function initEngineWhite(){
+      if(wf) wf.terminate();
+      wf=new Worker('stockfish.js');
+      wf.onmessage=e=>onEngineVsMsg(e.data,'w');
+      wf.postMessage('uci');
     }
-    function stopAnalysis() {
-      isAnalyzing = false;
-      document.getElementById('stopAnalysis').disabled = true;
-      if (engine) engine.postMessage('stop');
+    function initEngineBlack(){
+      if(bf) bf.terminate();
+      bf=new Worker('stockfish.js');
+      bf.onmessage=e=>onEngineVsMsg(e.data,'b');
+      bf.postMessage('uci');
     }
-
-    function sendAnalysis() {
-      engine.postMessage('ucinewgame');
-      engine.postMessage('position fen ' + game.fen());
-      engine.postMessage('setoption name MultiPV value ' + pvCount);
-      engine.postMessage('setoption name UCI_AnalyseMode value true');
-      const d = +document.getElementById('depthSelect').value;
-      engine.postMessage('go depth ' + d);
+    function runEngineVsEngine(){
+      if(game.game_over()) return;
+      const d=+document.getElementById('depthSelect').value;
+      const turn=game.turn();
+      const w=turn==='w'?wf:bf;
+      w.postMessage('ucinewgame');
+      w.postMessage('position fen '+game.fen());
+      w.postMessage('go depth '+d);
     }
-
-    function onEngineMsg(e) {
-      const line = e.data;
-      if (!line.startsWith('info')) return;
-      const t = line.split(' ');
-      const mpvI = t.indexOf('multipv');
-      const scI  = t.indexOf('score');
-      const pvI  = t.indexOf('pv');
-      if (mpvI>-1 && scI>-1 && pvI>-1) {
-        const mpv = +t[mpvI+1];
-        const cp  = +t[scI+2];
-        const moves = t.slice(pvI+1);
-        if (mpv===1) {
-          document.getElementById('numericEval')
-            .textContent = (cp>=0?'+':'')+(cp/100).toFixed(2);
-        }
-        updatePV(mpv, cp, moves);
+    function onEngineVsMsg(line,side){
+      if(!line.startsWith('bestmove')||game.turn()!==side) return;
+      const mv=line.split(' ')[1];
+      if(mv!=='(none)'){
+        game.move({from:mv.substr(0,2),to:mv.substr(2,2),promotion:mv[4]||'q'});
+        drawBoard();
+        setTimeout(runEngineVsEngine,200);
       }
     }
 
-    function updatePV(num, cp, moves) {
-      const ul = document.getElementById('pv-list');
-      let li = ul.querySelector(`li[data-pv="${num}"]`);
-      if (!li) {
-        li = document.createElement('li');
-        li.dataset.pv = num;
-        li.onclick = ()=>{ playLine(moves); };
-        ul.appendChild(li);
-      }
-      li.textContent = `${num}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
+    // Setup / Analysis share piece palette
+    let boardSetup={}, selectedPalettePiece='';
+    function boardSetupMode(sq){
+      boardSetup[sq]=selectedPalettePiece;
+      drawSetup();
     }
 
-    function playLine(moves) {
-      game.reset();
-      moves.forEach(mv=>game.move(mv));
-      drawBoard();
-    }
-
-    // --- Import/Setup/Play ---
-    document.getElementById('importFEN').onclick = ()=>{
-      const fen = prompt('Paste FEN:');
-      if (fen && game.load(fen)) drawBoard();
-      else alert('Invalid FEN');
-    };
-    document.getElementById('importPGN').onclick = ()=>{
-      const pgn = prompt('Paste PGN:');
-      try { game.load_pgn(pgn); drawBoard(); }
-      catch { alert('Invalid PGN'); }
-    };
-    document.getElementById('setupPosition').onclick = ()=>{
-      document.getElementById('modeSelect').value='setup';
-      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-    };
-    document.getElementById('playPosition').onclick = ()=>{
-      customFEN = game.fen();
-      document.getElementById('modeSelect').value='twoplayer';
-      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-    };
-
-    // --- Setup Mode ---
-    let boardSetup = {}, selectedPalettePiece = '';
-    function initializeSetupBoard(){
+    function initializeSetup(){
       boardSetup={};
       for(let r=1;r<=8;r++) for(let f of files) boardSetup[f+r]='';
       drawSetup();
@@ -386,46 +314,107 @@
     function drawSetup(){
       for(let r=8;r>=1;r--){
         for(let f=0;f<8;f++){
-          const sq = files[f]+r, td=document.getElementById(sq);
-          const code = boardSetup[sq];
-          td.textContent = code ? unicode({type:code[1],color:code[0]}) : '';
+          const sq=files[f]+r, td=document.getElementById(sq);
+          const code=boardSetup[sq];
+          td.textContent=code?unicode({type:code[1],color:code[0]}):'';
         }
       }
     }
     function makeFEN(turn){
       const parts=[];
       for(let r=8;r>=1;r--){
-        let row='',empty=0;
+        let row='',e=0;
         for(let f=0;f<8;f++){
           const c=boardSetup[files[f]+r];
-          if(!c) empty++;
-          else{
-            if(empty){row+=empty;empty=0;}
-            let L=c[1];
-            row += (c[0]==='w'?L.toUpperCase():L.toLowerCase());
-          }
+          if(!c) e++; else{ if(e){row+=e;e=0;} row+=c[1].toUpperCase()*0+ c[1];}
         }
-        if(empty) row+=empty;
+        if(e) row+=e;
         parts.push(row);
       }
       return parts.join('/')+' '+turn+' - - 0 1';
     }
 
-    // --- Reset Game ---
-    function resetGame() {
-      if (customFEN && mode!=='setup')
-        game.load(customFEN);
-      else
-        game.reset();
-      createBoard(); drawBoard();
-      if (mode==='enginevengine') setTimeout(runEngineVsEngine,250);
-      if (mode==='setup') initializeSetupBoard();
+    // Analysis
+    document.getElementById('stopAnalysis').onclick=stopAnalysis;
+    document.getElementById('hideAnalysis').onclick=()=>{
+      document.getElementById('analysis-panel').style.display='none';
+      stopAnalysis();
+    };
+    document.getElementById('increaseLines').onclick=()=>{pvCount=Math.min(10,pvCount+1); document.getElementById('linesCount').textContent=pvCount; if(isAnalyzing) sendAnalysis();};
+    document.getElementById('decreaseLines').onclick=()=>{pvCount=Math.max(1,pvCount-1); document.getElementById('linesCount').textContent=pvCount; if(isAnalyzing) sendAnalysis();};
+    document.getElementById('depthSelect').onchange=()=>{if(isAnalyzing)sendAnalysis();};
+
+    function startAnalysis(){
+      initAnalysisEngine();
+      isAnalyzing=true;
+      document.getElementById('stopAnalysis').disabled=false;
+      sendAnalysis();
+    }
+    function stopAnalysis(){
+      isAnalyzing=false;
+      document.getElementById('stopAnalysis').disabled=true;
+      if(engine)engine.postMessage('stop');
+    }
+    function initAnalysisEngine(){
+      if(engine)engine.terminate();
+      engine=new Worker('stockfish.js');
+      engine.onmessage=e=>onAnalysisMsg(e.data);
+      engine.postMessage('uci');
+    }
+    function sendAnalysis(){
+      engine.postMessage('ucinewgame');
+      engine.postMessage('position fen '+game.fen());
+      engine.postMessage('setoption name MultiPV value '+pvCount);
+      engine.postMessage('setoption name UCI_AnalyseMode value true');
+      engine.postMessage('go depth '+(+document.getElementById('depthSelect').value));
+    }
+    function onAnalysisMsg(line){
+      if(!line.startsWith('info'))return;
+      const t=line.split(' '), mp=t.indexOf('multipv'), sc=t.indexOf('score'), pv=t.indexOf('pv');
+      if(mpp>-1&&sc>-1&&pv>-1&&t[sc+1]==='cp'){
+        const num=+t[mp+1], cpval=+t[sc+2], moves=t.slice(pv+1);
+        if(num===1) document.getElementById('numericEval').textContent=((cpval>=0?'+':'')+(cpval/100).toFixed(2));
+        updatePV(num,cpval,moves);
+      }
+    }
+    function updatePV(n,cp,m){
+      const ul=document.getElementById('pv-list');
+      let li=ul.querySelector(`li[data-pv="${n}"]`);
+      if(!li){ li=document.createElement('li'); li.dataset.pv=n; li.onclick=()=>playPV(m); ul.appendChild(li); }
+      li.textContent=`${n}. ${m.join(' ')} (${(cp/100).toFixed(2)})`;
+    }
+    function playPV(m){
+      game.reset(); m.forEach(x=>game.move(x)); drawBoard();
     }
 
-    // === On load ===
-    window.onload = ()=>{
-      createBoard(); drawBoard();
-      updateStatus();
+    // Import / Setup / Play
+    document.getElementById('importFEN').onclick=()=>{
+      const f=prompt('FEN:'); if(f&&game.load(f))drawBoard(); else alert('Bad FEN');
+    };
+    document.getElementById('importPGN').onclick=()=>{
+      const p=prompt('PGN:'); try{game.load_pgn(p);drawBoard();}catch{alert('Bad PGN');}
+    };
+    document.getElementById('setupPosition').onclick=()=>{
+      document.getElementById('modeSelect').value='setup';
+      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
+    };
+    document.getElementById('playPosition').onclick=()=>{
+      customFEN=game.fen();
+      document.getElementById('modeSelect').value='twoplayer';
+      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
+    };
+
+    // Reset
+    function resetGame(){
+      if(customFEN&&mode!=='setup') game.load(customFEN); else game.reset();
+      drawBoard();
+      if(mode==='enginevengine') setTimeout(startEngineVsEngine,200);
+      if(mode==='setup') initializeSetup();
+    }
+
+    // Init
+    window.onload=()=>{
+      createBoard(); drawBoard(); updateStatus();
       document.getElementById('modeSelect').value='twoplayer';
     };
   </script>
