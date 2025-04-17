@@ -32,7 +32,6 @@
     .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
 
-    /* Analysis list styling */
     #pv-list { max-height: 300px; overflow-y: auto; padding: 0; list-style: none; margin: 4px 0; }
     #pv-list li { padding: 2px 4px; cursor: pointer; }
     #pv-list li:hover { background: #eef; }
@@ -98,13 +97,15 @@
   <div id="status"></div>
   <div id="version">v.1.8</div>
 
-  <!-- Dependencies -->
+  <!-- 1) jQuery (required by chessboard.js) -->
   <script src="https://code.jquery.com/jquery-3.5.1.min.js"
           integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
           crossorigin="anonymous"></script>
+  <!-- 2) chessboard.js JS via CDNJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"
           integrity="sha512-R+IopO7ZIbCEuQUMtGPYfmZ+dc0xpP0hO8B0SpvWH1uxfr4Kd6z0Hsb+o8C/l6jkgkKXGB0k0W1cVYuIEGjVhw=="
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- 3) chess.js for move legality, FEN/PGN, etc. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"
           integrity="sha512-nFu8gkh1pW7GkXoVexJxOpUk0szbYHF8jf0fi4nXVgIyH+mREeR0uVlnhzjD+YHmMC+3R4kV0Fwd/ejVy+RrgQ=="
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -121,6 +122,7 @@
       board = Chessboard('chessboard', {
         draggable: true,
         position: 'start',
+        pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png',
         onDrop: onMove
       });
       updateStatus();
@@ -159,24 +161,24 @@
     });
 
     // === Analysis Controls ===
-    document.getElementById('stopAnalysis').addEventListener('click', stopAnalysis);
-    document.getElementById('hideAnalysis').addEventListener('click', () => {
+    document.getElementById('stopAnalysis').onclick = stopAnalysis;
+    document.getElementById('hideAnalysis').onclick = () => {
       document.getElementById('analysis-panel').style.display = 'none';
       stopAnalysis();
-    });
-    document.getElementById('increaseLines').addEventListener('click', () => {
+    };
+    document.getElementById('increaseLines').onclick = () => {
       let n = +document.getElementById('linesCount').textContent;
       if (n < 10) document.getElementById('linesCount').textContent = ++n;
       if (isAnalyzing) sendAnalysis();
-    });
-    document.getElementById('decreaseLines').addEventListener('click', () => {
+    };
+    document.getElementById('decreaseLines').onclick = () => {
       let n = +document.getElementById('linesCount').textContent;
       if (n > 1) document.getElementById('linesCount').textContent = --n;
       if (isAnalyzing) sendAnalysis();
-    });
-    document.getElementById('depthSelect').addEventListener('change', () => {
+    };
+    document.getElementById('depthSelect').onchange = () => {
       if (isAnalyzing) sendAnalysis();
-    });
+    };
 
     // === Start/Stop Analysis ===
     function startAnalysis() {
@@ -206,20 +208,17 @@
     function onEngineMessage(e) {
       const line = e.data;
       if (line.startsWith('info')) {
-        const tokens = line.split(' ');
-        const mpvIdx = tokens.indexOf('multipv');
-        const scIdx  = tokens.indexOf('score');
-        if (mpvIdx>-1 && scIdx>-1 && tokens[scIdx+1]==='cp') {
-          const mpv = +tokens[mpvIdx+1];
-          const cp  = +tokens[scIdx+2];
+        const t = line.split(' ');
+        const mpvI = t.indexOf('multipv'), scI = t.indexOf('score');
+        if (mpvI>-1 && scI>-1 && t[scI+1]==='cp') {
+          const mpv = +t[mpvI+1], cp = +t[scI+2];
           if (mpv === 1) {
             const pawns = (cp/100).toFixed(2);
-            document.getElementById('numericEval')
-              .textContent = (pawns>=0?'+':'') + pawns;
+            document.getElementById('numericEval').textContent = (pawns>=0?'+':'') + pawns;
           }
-          const pvIdx = tokens.indexOf('pv');
-          if (pvIdx > -1) {
-            const moves = tokens.slice(pvIdx+1);
+          const pvI = t.indexOf('pv');
+          if (pvI>-1) {
+            const moves = t.slice(pvI+1);
             updatePVList(mpv, cp, moves);
           }
         }
@@ -234,12 +233,12 @@
         li = document.createElement('li');
         li.dataset.pv = num;
         ul.appendChild(li);
-        li.addEventListener('click', () => {
+        li.onclick = () => {
           game.reset();
-          moves.forEach(mv => game.move(mv));
+          moves.forEach(mv=>game.move(mv));
           board.position(game.fen());
           updateStatus();
-        });
+        };
       }
       const pawns = (cp/100).toFixed(2);
       li.textContent = `${num}. ${moves.join(' ')} (${pawns})`;
@@ -254,29 +253,29 @@
     }
 
     // === Import / Setup / Play ===
-    document.getElementById('importFEN').addEventListener('click', () => {
+    document.getElementById('importFEN').onclick = () => {
       const fen = prompt('Paste FEN:');
       if (fen && game.load(fen)) board.position(game.fen());
       else alert('Invalid FEN');
-    });
-    document.getElementById('importPGN').addEventListener('click', () => {
+    };
+    document.getElementById('importPGN').onclick = () => {
       const pgn = prompt('Paste PGN:');
       try { game.load_pgn(pgn); board.position(game.fen()); }
       catch { alert('Invalid PGN'); }
-    });
-    document.getElementById('setupPosition').addEventListener('click', () => {
+    };
+    document.getElementById('setupPosition').onclick = () => {
       document.getElementById('modeSelect').value = 'setup';
       document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-    });
-    document.getElementById('playPosition').addEventListener('click', () => {
+    };
+    document.getElementById('playPosition').onclick = () => {
       customFEN = game.fen();
       document.getElementById('modeSelect').value = 'twoplayer';
       document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-    });
+    };
 
     // === Reset Game ===
     function resetGame() {
-      if (customFEN && document.getElementById('modeSelect').value !== 'setup')
+      if (customFEN && document.getElementById('modeSelect').value!=='setup')
         game.load(customFEN);
       else game.reset();
       board.position(game.fen());
