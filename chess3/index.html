@@ -5,48 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mitch's Sigma Chess</title>
   <style>
-    /* Basic layout */
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; margin-bottom: 10px; }
     #game-options { text-align: center; margin-bottom: 10px; }
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
+    #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
-    /* Board */
-    #chessboard { margin: 0 auto; display: inline-block; }
+    /* Board & eval-bar container */
+    #board-container {
+      display: flex; justify-content: center; align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    #evalBarContainer {
+      display: none; /* shown by checkbox */
+      width: 12px; height: 480px; margin-right: 10px;
+      border: 1px solid #333;
+    }
+    #evalBar {
+      width: 100%; height: 100%;
+      background: #eee;
+    }
+
+    /* Chessboard */
+    #chessboard { display: inline-block; }
     table { border-collapse: collapse; }
     td {
       width: 60px; height: 60px;
       text-align: center; vertical-align: middle;
-      font-size: 42px;
-      cursor: pointer; user-select: none;
+      font-size: 42px; cursor: pointer; user-select: none;
     }
-    .light { background: #f0d9b5; }
-    .dark  { background: #b58863; }
-    .selected { outline: 3px solid red; }
+    .light { background: #f0d9b5 }
+    .dark  { background: #b58863 }
+    .selected { outline: 3px solid red }
 
     /* Controls */
-    #resetButton, #startEngineVsEngine, #finishSetupButton {
+    #resetButton, #startEngineVsEngine, #finishSetupButton, #analyzeButton {
       margin-top: 10px; padding: 5px 15px; font-size: 16px;
     }
-    #version { text-align: center; font-size: 10px; margin-top: 10px; }
-
-    /* Hide all extra control groups by default */
+    /* Hide groups by default */
     #single-difficulty,
     #losing-depth,
     #engine-levels,
     #worst-depth-control,
     #setup-controls,
-    #piece-palette {
+    #piece-palette,
+    #analysis-controls {
       display: none;
     }
-
-    /* Palette styling */
+    /* Palette */
     #piece-palette {
       margin: 10px auto; width: 600px; text-align: center;
     }
     #piece-palette button {
-      font-size: 24px; margin: 2px; padding: 5px 10px;
-      cursor: pointer;
+      font-size: 24px; margin: 2px; padding: 5px 10px; cursor: pointer;
     }
   </style>
 </head>
@@ -61,9 +72,13 @@
       <option value="losing">Losing Mode</option>
       <option value="enginevengine">Engine vs Engine</option>
       <option value="setup">Setup Position</option>
+      <option value="analysis">Analysis Mode</option>
     </select>
 
-    <!-- Single-player difficulty -->
+    <!-- Eval‑Bar toggle -->
+    <label><input type="checkbox" id="evalBarToggle"/> Show eval bar</label>
+
+    <!-- Single‑player difficulty -->
     <span id="single-difficulty">
       <label>Difficulty:</label>
       <select id="difficultySelect">
@@ -77,7 +92,7 @@
       </select>
     </span>
 
-    <!-- Losing-depth -->
+    <!-- Losing‑depth -->
     <span id="losing-depth">
       <label>Losing Depth:</label>
       <select id="losingDepthSelect">
@@ -89,7 +104,7 @@
       </select>
     </span>
 
-    <!-- Engine vs engine levels -->
+    <!-- Engine‑v‑engine levels -->
     <span id="engine-levels">
       <label>White Skill:</label>
       <select id="whiteDifficultySelect">
@@ -113,9 +128,9 @@
       </select>
     </span>
 
-    <!-- Worst-move depth for -1 -->
+    <!-- Worst‑move depth -->
     <span id="worst-depth-control">
-      <label>Worst Move Depth (for -1):</label>
+      <label>Worst Move Depth (for –1):</label>
       <input type="number" id="worstDepthInput" min="1" max="20" value="10"/>
     </span>
 
@@ -129,416 +144,462 @@
       </select>
       <button id="finishSetupButton">Finish Setup</button>
     </span>
+
+    <!-- Analysis controls -->
+    <span id="analysis-controls">
+      <label>FEN:</label>
+      <input type="text" id="analysisFEN" size="50" 
+             value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"/>
+      <button id="analyzeButton">Analyze</button>
+      <div id="analysisOutput" style="margin-top:5px;"></div>
+    </span>
   </div>
 
-  <!-- Piece palette -->
+  <!-- Palette -->
   <div id="piece-palette"></div>
 
-  <!-- Engine vs engine start -->
+  <!-- Board + Eval‑Bar -->
+  <div id="board-container">
+    <div id="evalBarContainer"><div id="evalBar"></div></div>
+    <div id="chessboard"></div>
+  </div>
+
+  <!-- Controls & version -->
   <button id="startEngineVsEngine">Start Engine vs Engine</button>
-
-  <!-- Board & status -->
-  <div id="chessboard"></div>
-  <div id="status"></div>
   <button id="resetButton">Reset Game</button>
-
-  <!-- Version -->
+  <div id="status"></div>
   <div id="version">v.1.8</div>
 
-  <!-- chess.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-    // === Globals ===
-    var game = new Chess();
-    var boardDiv = document.getElementById('chessboard');
-    var currentMode = 'twoplayer';
-    var humanColor = 'w';
-    var customFEN = null;
-    var boardSetup = {};
-    var selectedPalettePiece = '';
-    var selectedSquare = null;
-    var files = ['a','b','c','d','e','f','g','h'];
+  // --- Globals ---
+  const game = new Chess();
+  let currentMode = 'twoplayer';
+  let humanColor = 'w';
+  let customFEN = null;
+  const files = ['a','b','c','d','e','f','g','h'];
+  let boardSetup = {}, selectedPalettePiece = '', selectedSquare = null;
+  let stockfish, stockfishWhite, stockfishBlack;
 
-    // Engine workers
-    var stockfish, stockfishWhite, stockfishBlack;
-
-    // === Board rendering ===
-    function createBoard() {
-      var tbl = document.createElement('table');
-      for (var i=0; i<8; i++) {
-        var tr = document.createElement('tr');
-        var rank = 8 - i;
-        for (var j=0; j<8; j++) {
-          var td = document.createElement('td');
-          var sq = files[j] + rank;
-          td.id = sq;
-          td.className = (i+j)%2? 'light':'dark';
-          td.addEventListener('click', onCellClick);
-          tr.appendChild(td);
-        }
-        tbl.appendChild(tr);
+  // --- Board Creation & Drawing ---
+  function createBoard() {
+    const boardDiv = document.getElementById('chessboard');
+    const tbl = document.createElement('table');
+    for(let i=0;i<8;i++){
+      const tr = document.createElement('tr');
+      const rank = 8 - i;
+      for(let j=0;j<8;j++){
+        const td = document.createElement('td');
+        const sq = files[j] + rank;
+        td.id = sq;
+        td.className = ((i+j)%2)? 'light':'dark';
+        td.addEventListener('click', onCellClick);
+        tr.appendChild(td);
       }
-      boardDiv.innerHTML = '';
-      boardDiv.appendChild(tbl);
+      tbl.appendChild(tr);
     }
+    boardDiv.innerHTML = '';
+    boardDiv.appendChild(tbl);
+  }
 
-    function getUnicode(piece) {
-      var m = {
-        p:{w:'♙',b:'♟'},
-        r:{w:'♖',b:'♜'},
-        n:{w:'♘',b:'♞'},
-        b:{w:'♗',b:'♝'},
-        q:{w:'♕',b:'♛'},
-        k:{w:'♔',b:'♚'}
-      };
-      return m[piece.type][piece.color];
-    }
+  function getUnicode(piece) {
+    const m = {
+      p:{w:'♙',b:'♟'}, r:{w:'♖',b:'♜'},
+      n:{w:'♘',b:'♞'}, b:{w:'♗',b:'♝'},
+      q:{w:'♕',b:'♛'}, k:{w:'♔',b:'♚'}
+    };
+    return m[piece.type][piece.color];
+  }
 
-    function drawBoard() {
-      var b = game.board();
-      for (var i=0; i<8; i++) {
-        var rank = 8 - i;
-        for (var j=0; j<8; j++) {
-          var sq = files[j] + rank;
-          var td = document.getElementById(sq);
-          var pc = b[i][j];
-          td.innerHTML = pc? getUnicode(pc): '';
-          td.classList.remove('selected');
-        }
-      }
-      updateStatus();
-    }
-
-    function drawSetupBoard() {
-      for (var r=8; r>=1; r--) {
-        for (var f=0; f<8; f++) {
-          var sq = files[f] + r;
-          var td = document.getElementById(sq);
-          var code = boardSetup[sq]||'';
-          td.innerHTML = code? getUnicode({ type: code[1], color: code[0] }): '';
-        }
+  function drawBoard() {
+    const b = game.board();
+    for(let i=0;i<8;i++){
+      const rank = 8 - i;
+      for(let j=0;j<8;j++){
+        const sq = files[j] + rank;
+        const td = document.getElementById(sq);
+        const pc = b[i][j];
+        td.innerHTML = pc? getUnicode(pc): '';
+        td.classList.remove('selected');
       }
     }
+    updateStatus();
+    if(document.getElementById('evalBarToggle').checked) updateEvalBar();
+  }
 
-    function updateStatus() {
-      var s = '';
-      if (game.in_checkmate()) {
-        s = 'Game over: ' + (game.turn()==='w'?'Black':'White') + ' wins by checkmate.';
-      } else if (game.in_draw()) {
-        s = 'Game over: drawn position.';
-      } else {
-        s = (game.turn()==='w'?'White':'Black') + ' to move.' + (game.in_check()?' Check!':'');
-      }
-      document.getElementById('status').textContent = s;
-    }
-
-    // === Palette ===
-    function createPiecePalette() {
-      var pal = document.getElementById('piece-palette');
-      var items = [
-        {lbl:'Clear', code:''},
-        {lbl:'♙', code:'wp'},{lbl:'♘', code:'wn'},{lbl:'♗', code:'wb'},
-        {lbl:'♖', code:'wr'},{lbl:'♕', code:'wq'},{lbl:'♔', code:'wk'},
-        {lbl:'♟', code:'bp'},{lbl:'♞', code:'bn'},{lbl:'♝', code:'bb'},
-        {lbl:'♜', code:'br'},{lbl:'♛', code:'bq'},{lbl:'♚', code:'bk'}
-      ];
-      pal.innerHTML = '';
-      items.forEach(function(it) {
-        var btn = document.createElement('button');
-        btn.innerText = it.lbl;
-        btn.onclick = function(){ selectPalettePiece(it.code); };
-        pal.appendChild(btn);
-      });
-      selectPalettePiece('');  // default select “clear”
-    }
-
-    function selectPalettePiece(code) {
-      selectedPalettePiece = code;
-      Array.from(document.getElementById('piece-palette').children)
-        .forEach(function(b){
-          b.style.border = ( (code===''
-            ? b.innerText==='Clear'
-            : b.innerText === getUnicode({type:code[1],color:code[0]}) )
-            ? '2px solid red':'');
-        });
-    }
-
-    // === Click handler ===
-    function onCellClick(e) {
-      var sq = e.currentTarget.id;
-      if (currentMode==='setup') {
-        boardSetup[sq] = selectedPalettePiece;
-        drawSetupBoard();
-        return;
-      }
-      if (currentMode==='enginevengine') return;
-      // normal move:
-      if (!selectedSquare) {
-        var pc = game.get(sq);
-        if (!pc || pc.color!==game.turn()) return;
-        if ((currentMode==='stockfish'||currentMode==='losing') && pc.color!==humanColor) return;
-        selectedSquare = sq; e.currentTarget.classList.add('selected');
-      } else {
-        if (selectedSquare===sq) { 
-          document.getElementById(sq).classList.remove('selected');
-          selectedSquare = null; return;
-        }
-        // handle promotion
-        var promo='q', pc=game.get(selectedSquare);
-        if (pc && pc.type==='p' && ((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))) {
-          var c=prompt('Promote to (q,r,b,n):','q');
-          if (c&&( 'qrbn'.includes(c.toLowerCase()) )) promo=c.toLowerCase();
-        }
-        var mv = game.move({from:selectedSquare,to:sq,promotion:promo});
-        if (!mv) alert('Invalid!');
-        selectedSquare=null; drawBoard();
-        // engine response
-        if ((currentMode==='stockfish'||currentMode==='losing') && game.turn()!==humanColor && !game.game_over()) {
-          if (currentMode==='stockfish') {
-            var d=parseInt(document.getElementById('difficultySelect').value,10);
-            if (d===-1) {
-              var wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
-              setTimeout(function(){
-                chooseWorstMoveUsingStockfish(wd).then(function(m){ if(m) game.move(m); drawBoard(); });
-              },250);
-            } else setTimeout(function(){ askEngineForMove(game.fen()); },250);
-          } else {
-            setTimeout(function(){
-              chooseWorstMoveUsingStockfish().then(function(m){ if(m) game.move(m); drawBoard(); });
-            },250);
-          }
-        }
+  function drawSetupBoard() {
+    for(let r=8;r>=1;r--){
+      for(let j=0;j<8;j++){
+        const sq = files[j] + r;
+        const td = document.getElementById(sq);
+        const code = boardSetup[sq]||'';
+        td.innerHTML = code? getUnicode({type:code[1],color:code[0]}):'';
       }
     }
+  }
 
-    // === Setup mode ===
-    function initializeSetupBoard(){
-      boardSetup = {};
-      for(var r=1;r<=8;r++)for(var f of files)boardSetup[f+r]='';
-      drawSetupBoard();
+  function updateStatus(){
+    let s='';
+    if(game.in_checkmate()){
+      s=`Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
+    } else if(game.in_draw()){
+      s='Game over: drawn position.';
+    } else {
+      s=`${game.turn()==='w'?'White':'Black'} to move.` +
+        (game.in_check()?' Check!':'');
     }
-    function finishSetup(){
-      var turn=document.getElementById('turnSelect').value;
-      var parts=[];
-      for(var rank=8;rank>=1;rank--){
-        var row='',empty=0;
-        for(var f of files){
-          var c=boardSetup[f+rank]||'';
-          if(!c) empty++;
-          else{
-            if(empty){ row+=empty; empty=0; }
-            var L=c[1]; L = c[0]==='w'?L.toUpperCase():L.toLowerCase();
-            row+=L;
-          }
-        }
-        if(empty) row+=empty;
-        parts.push(row);
-      }
-      customFEN = parts.join('/')+' '+turn+' - - 0 1';
-      game.load(customFEN);
-      drawBoard();
-      alert('Position set. Switch mode to play.');
-    }
+    document.getElementById('status').textContent = s;
+  }
 
-    // === Stockfish integration ===
-    function initStockfish(){
-      if(typeof Worker==='undefined'){console.error('No Web Workers');return;}
-      if(!stockfish){
-        stockfish=new Worker('stockfish.js');
-        stockfish.onmessage=function(e){
-          var m=e.data;
-          if(m.startsWith('bestmove')){
-            var mv=m.split(' ')[1];
-            if(mv!=='(none)'){
-              var mo=fixEnginePromotion(mv,game.fen());
-              game.move(mo); drawBoard();
-            }
-          }
-        };
-        stockfish.postMessage('uci');
-        setTimeout(function(){ updateSingleEngineDifficulty(); },500);
-      } else updateSingleEngineDifficulty();
-    }
-    function updateSingleEngineDifficulty(){
-      var d=document.getElementById('difficultySelect').value;
-      stockfish.postMessage('setoption name Skill Level value '+d);
-    }
-    function askEngineForMove(fen){
-      stockfish.postMessage('position fen '+fen);
-      stockfish.postMessage('go movetime 500');
-    }
-
-    function evaluateMoveWithStockfish(fen,depth=12){
-      return new Promise(function(res){
-        var w=new Worker('stockfish.js'),score=null;
-        w.onmessage=function(e){
-          var L=e.data;
-          if(L.includes('score cp')){
-            var m=L.match(/score cp (-?\d+)/);
-            if(m) score=parseInt(m[1],10);
-          }
-          if(L.startsWith('bestmove')){
-            w.terminate(); res(score);
-          }
-        };
-        w.postMessage('uci');
-        setTimeout(function(){
-          w.postMessage('position fen '+fen);
-          w.postMessage('go depth '+depth);
-        },200);
-      });
-    }
-    function chooseWorstMoveUsingStockfish(customDepth){
-      var moves=game.moves({verbose:true});
-      if(!moves.length) return Promise.resolve(null);
-      var depth=customDepth!==undefined?customDepth:parseInt(document.getElementById('losingDepthSelect').value,10);
-      var promises=moves.map(function(m){
-        var c=new Chess(game.fen()); c.move(m);
-        return evaluateMoveWithStockfish(c.fen(),depth).then(function(s){return {move:m,score:s};});
-      });
-      return Promise.all(promises).then(function(results){
-        return results.reduce(function(a,b){return b.score>a.score?b:a;},results[0]).move;
-      });
-    }
-
-    function getEnginePromotionMove(fen,from,to){
-      var p=['q','r','b','n'];
-      for(var pi of p){
-        var c=new Chess(fen);
-        var mv=c.move({from:from,to:to,promotion:pi});
-        if(mv && !c.in_draw()) return {from:from,to:to,promotion:pi};
-      }
-      return {from:from,to:to,promotion:'q'};
-    }
-    function fixEnginePromotion(bestMove,fen){
-      var f=bestMove.substr(0,2),t=bestMove.substr(2,2);
-      if(bestMove.length===5){
-        var pr=bestMove[4];
-        var c=new Chess(fen);
-        c.move({from:f,to:t,promotion:pr});
-        if(c.in_draw()) return getEnginePromotionMove(fen,f,t);
-        else return {from:f,to:t,promotion:pr};
-      }
-      return {from:f,to:t};
-    }
-
-    // === Engine vs Engine ===
-    function initEngineVsEngine(){
-      if(stockfish){stockfish.terminate(); stockfish=null;}
-      if(typeof Worker==='undefined'){console.error('No W');return;}
-      // White
-      if(!stockfishWhite){
-        stockfishWhite=new Worker('stockfish.js');
-        stockfishWhite.onmessage=function(e){
-          var m=e.data;
-          if(m.startsWith('bestmove') && game.turn()==='w'){
-            var mv=m.split(' ')[1];
-            if(mv!=='(none)'){
-              var mo=fixEnginePromotion(mv,game.fen());
-              game.move(mo); drawBoard();
-              setTimeout(autoPlayEngineVsEngine,250);
-            }
-          }
-        };
-        stockfishWhite.postMessage('uci');
-        setTimeout(function(){ updateEngineDifficulty('w'); },500);
-      } else updateEngineDifficulty('w');
-      // Black
-      if(!stockfishBlack){
-        stockfishBlack=new Worker('stockfish.js');
-        stockfishBlack.onmessage=function(e){
-          var m=e.data;
-          if(m.startsWith('bestmove') && game.turn()==='b'){
-            var mv=m.split(' ')[1];
-            if(mv!=='(none)'){
-              var mo=fixEnginePromotion(mv,game.fen());
-              game.move(mo); drawBoard();
-              setTimeout(autoPlayEngineVsEngine,250);
-            }
-          }
-        };
-        stockfishBlack.postMessage('uci');
-        setTimeout(function(){ updateEngineDifficulty('b'); },500);
-      } else updateEngineDifficulty('b');
-      autoPlayEngineVsEngine();
-    }
-    function updateEngineDifficulty(side){
-      var val=document.getElementById(side==='w'?'whiteDifficultySelect':'blackDifficultySelect').value;
-      (side==='w'?stockfishWhite:stockfishBlack).postMessage('setoption name Skill Level value '+val);
-    }
-    function autoPlayEngineVsEngine(){
-      if(game.game_over()){ updateStatus(); return; }
-      var fen=game.fen();
-      var turn=game.turn();
-      var diff= parseInt(document.getElementById(turn==='w'?'whiteDifficultySelect':'blackDifficultySelect').value,10);
-      if(diff===-1){
-        var wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
-        chooseWorstMoveUsingStockfish(wd).then(function(mv){
-          if(mv) game.move(mv);
-          drawBoard();
-          setTimeout(autoPlayEngineVsEngine,250);
-        });
-      } else {
-        var worker = turn==='w'?stockfishWhite:stockfishBlack;
-        worker.postMessage('position fen '+fen);
-        worker.postMessage('go movetime 500');
-      }
-    }
-
-    // === UI logic ===
-    function updateWorstDepthControlVisibility(){
-      var m=currentMode;
-      var show=false;
-      if(m==='stockfish' && document.getElementById('difficultySelect').value==='-1') show=true;
-      if(m==='enginevengine' && (document.getElementById('whiteDifficultySelect').value==='-1' || document.getElementById('blackDifficultySelect').value==='-1')) show=true;
-      document.getElementById('worst-depth-control').style.display = show?'inline':'none';
-    }
-
-    function updateUI(){
-      var m=document.getElementById('modeSelect').value;
-      currentMode=m;
-      // show/hide groups
-      document.getElementById('single-difficulty').style.display = m==='stockfish'?'inline':'none';
-      document.getElementById('losing-depth').style.display = m==='losing'?'inline':'none';
-      document.getElementById('engine-levels').style.display = m==='enginevengine'?'inline':'none';
-      document.getElementById('setup-controls').style.display = m==='setup'?'inline':'none';
-      document.getElementById('startEngineVsEngine').style.display = m==='enginevengine'?'inline-block':'none';
-      document.getElementById('piece-palette').style.display = m==='setup'?'block':'none';
-      updateWorstDepthControlVisibility();
-
-      if(m==='setup'){
-        initializeSetupBoard();
-        createPiecePalette();
-      }
-      // when leaving setup (but not entering enginevengine), restore custom position if any
-      if(m!=='setup' && m!=='enginevengine' && customFEN){
-        game.load(customFEN);
-        drawBoard();
-      }
-    }
-
-    function resetGame(){
-      if(customFEN && currentMode!=='setup') game.load(customFEN);
-      else game.reset();
-      selectedSquare=null; drawBoard();
-      if(currentMode==='enginevengine') setTimeout(autoPlayEngineVsEngine,250);
-    }
-
-    // === Event listeners ===
-    document.getElementById('modeSelect').addEventListener('change',function(){
-      updateUI(); resetGame();
+  // --- Evaluation Bar ---
+  function updateEvalBar(){
+    const fen = game.fen();
+    evaluateMoveWithStockfish(fen,12).then(cp=>{
+      const pctBlack = Math.min(Math.max(-cp/1000,0),1);
+      const bar = document.getElementById('evalBar');
+      bar.style.background = 
+        `linear-gradient(to top, black ${(pctBlack*100).toFixed(1)}%, white ${(pctBlack*100).toFixed(1)}%)`;
     });
-    document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-    document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-    document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-    document.getElementById('finishSetupButton').addEventListener('click',finishSetup);
-    document.getElementById('startEngineVsEngine').addEventListener('click',initEngineVsEngine);
-    document.getElementById('resetButton').addEventListener('click',resetGame);
+  }
 
-    // === Init on load ===
-    createBoard();
+  // --- Palette for Setup ---
+  function createPiecePalette(){
+    const pal = document.getElementById('piece-palette');
+    const items = [
+      {lbl:'Clear',code:''},{lbl:'♙',code:'wp'},{lbl:'♘',code:'wn'},
+      {lbl:'♗',code:'wb'},{lbl:'♖',code:'wr'},{lbl:'♕',code:'wq'},
+      {lbl:'♔',code:'wk'},{lbl:'♟',code:'bp'},{lbl:'♞',code:'bn'},
+      {lbl:'♝',code:'bb'},{lbl:'♜',code:'br'},{lbl:'♛',code:'bq'},
+      {lbl:'♚',code:'bk'}
+    ];
+    pal.innerHTML='';
+    items.forEach(it=>{
+      const b=document.createElement('button');
+      b.innerText=it.lbl;
+      b.onclick=()=>selectPalettePiece(it.code);
+      pal.appendChild(b);
+    });
+    selectPalettePiece('');
+  }
+
+  function selectPalettePiece(code){
+    selectedPalettePiece=code;
+    Array.from(document.getElementById('piece-palette')
+      .children).forEach(b=>{
+      b.style.border = 
+        ( code===''?b.innerText==='Clear'
+          : b.innerText===getUnicode({type:code[1],color:code[0]})
+        )? '2px solid red':'' ;
+    });
+  }
+
+  // --- Click Handling ---
+  function onCellClick(e){
+    const sq=e.currentTarget.id;
+    if(currentMode==='setup'){
+      boardSetup[sq]=selectedPalettePiece;
+      drawSetupBoard();
+      return;
+    }
+    if(currentMode==='enginevengine') return;
+    if(!selectedSquare){
+      const pc=game.get(sq);
+      if(!pc||pc.color!==game.turn()) return;
+      if((currentMode==='stockfish'||currentMode==='losing')&&pc.color!==humanColor) return;
+      selectedSquare=sq; e.currentTarget.classList.add('selected');
+    } else {
+      if(selectedSquare===sq){
+        document.getElementById(sq).classList.remove('selected');
+        selectedSquare=null; return;
+      }
+      let promo='q', pc=game.get(selectedSquare);
+      if(pc&&pc.type==='p'&&((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))){
+        const c=prompt('Promote to (q,r,b,n):','q');
+        if(c&&'qrbn'.includes(c.toLowerCase())) promo=c.toLowerCase();
+      }
+      const mv=game.move({from:selectedSquare,to:sq,promotion:promo});
+      if(!mv) alert('Invalid move!');
+      selectedSquare=null; drawBoard();
+      // engine response
+      if((currentMode==='stockfish'||currentMode==='losing')
+         && game.turn()!==humanColor && !game.game_over()){
+        if(currentMode==='stockfish'){
+          const d=parseInt(document.getElementById('difficultySelect').value,10);
+          if(d===-1){
+            const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+            setTimeout(()=>{
+              chooseWorstMoveUsingStockfish(wd).then(m=>{
+                if(m) game.move(m);
+                drawBoard();
+              });
+            },250);
+          } else setTimeout(()=>askEngineForMove(game.fen()),250);
+        } else {
+          setTimeout(()=>{
+            chooseWorstMoveUsingStockfish().then(m=>{
+              if(m) game.move(m);
+              drawBoard();
+            });
+          },250);
+        }
+      }
+    }
+  }
+
+  // --- Setup Mode Functions ---
+  function initializeSetupBoard(){
+    boardSetup={};
+    for(let r=1;r<=8;r++)for(let f of files) boardSetup[f+r]='';
+    drawSetupBoard();
+  }
+  function finishSetup(){
+    const turn=document.getElementById('turnSelect').value;
+    const parts=[];
+    for(let r=8;r>=1;r--){
+      let row='',empty=0;
+      for(let f of files){
+        const c=boardSetup[f+r]||'';
+        if(!c) empty++;
+        else{
+          if(empty){row+=empty; empty=0;}
+          let L=c[1];
+          L=(c[0]==='w'?L.toUpperCase():L.toLowerCase());
+          row+=L;
+        }
+      }
+      if(empty) row+=empty;
+      parts.push(row);
+    }
+    customFEN=parts.join('/')+' '+turn+' - - 0 1';
+    game.load(customFEN);
     drawBoard();
-    updateUI();
+    alert('Custom position applied. Switch mode to play.');
+  }
+
+  // --- Stockfish Integration ---
+  function initStockfish(){
+    if(typeof Worker==='undefined') return console.error('No Web Workers');
+    if(!stockfish){
+      stockfish=new Worker('stockfish.js');
+      stockfish.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+          }
+        }
+      };
+      stockfish.postMessage('uci');
+      setTimeout(updateSingleEngineDifficulty,500);
+    } else updateSingleEngineDifficulty();
+  }
+  function updateSingleEngineDifficulty(){
+    const d=document.getElementById('difficultySelect').value;
+    stockfish.postMessage('setoption name Skill Level value '+d);
+  }
+  function askEngineForMove(fen){
+    stockfish.postMessage('position fen '+fen);
+    stockfish.postMessage('go movetime 500');
+  }
+  function evaluateMoveWithStockfish(fen,depth=12){
+    return new Promise(res=>{
+      const w=new Worker('stockfish.js');
+      let score=null;
+      w.onmessage=e=>{
+        const L=e.data;
+        if(L.includes('score cp')){
+          const m=L.match(/score cp (-?\d+)/);
+          if(m) score=parseInt(m[1],10);
+        }
+        if(L.startsWith('bestmove')){
+          w.terminate(); res(score);
+        }
+      };
+      w.postMessage('uci');
+      setTimeout(()=>{
+        w.postMessage('position fen '+fen);
+        w.postMessage('go depth '+depth);
+      },200);
+    });
+  }
+  function chooseWorstMoveUsingStockfish(customDepth){
+    const moves=game.moves({verbose:true});
+    if(!moves.length) return Promise.resolve(null);
+    const depth=(customDepth!==undefined?customDepth:
+      parseInt(document.getElementById('losingDepthSelect').value,10));
+    const promises=moves.map(m=>{
+      const c=new Chess(game.fen()); c.move(m);
+      return evaluateMoveWithStockfish(c.fen(),depth)
+        .then(s=>({move:m,score:s}));
+    });
+    return Promise.all(promises).then(rs=>
+      rs.reduce((a,b)=>b.score>a.score?b:a,rs[0]).move
+    );
+  }
+  function getEnginePromotionMove(fen,from,to){
+    const p=['q','r','b','n'];
+    for(let pi of p){
+      const c=new Chess(fen);
+      const mv=c.move({from,to,promotion:pi});
+      if(mv&&!c.in_draw()) return {from,to,promotion:pi};
+    }
+    return {from,to,promotion:'q'};
+  }
+  function fixEnginePromotion(bestMove,fen){
+    const f=bestMove.substr(0,2), t=bestMove.substr(2,2);
+    if(bestMove.length===5){
+      const pr=bestMove[4];
+      const c=new Chess(fen);
+      c.move({from:f,to:t,promotion:pr});
+      if(c.in_draw()) return getEnginePromotionMove(fen,f,t);
+      return {from:f,to:t,promotion:pr};
+    }
+    return {from:f,to:t};
+  }
+
+  // --- Engine vs Engine ---
+  function initEngineVsEngine(){
+    if(stockfish){ stockfish.terminate(); stockfish=null; }
+    if(typeof Worker==='undefined') return console.error('No W');
+    // White
+    if(!stockfishWhite){
+      stockfishWhite=new Worker('stockfish.js');
+      stockfishWhite.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')&&game.turn()==='w'){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+            setTimeout(autoPlayEngineVsEngine,250);
+          }
+        }
+      };
+      stockfishWhite.postMessage('uci');
+      setTimeout(()=>updateEngineDifficulty('w'),500);
+    } else updateEngineDifficulty('w');
+    // Black
+    if(!stockfishBlack){
+      stockfishBlack=new Worker('stockfish.js');
+      stockfishBlack.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')&&game.turn()==='b'){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+            setTimeout(autoPlayEngineVsEngine,250);
+          }
+        }
+      };
+      stockfishBlack.postMessage('uci');
+      setTimeout(()=>updateEngineDifficulty('b'),500);
+    } else updateEngineDifficulty('b');
+    autoPlayEngineVsEngine();
+  }
+  function updateEngineDifficulty(side){
+    const val=document.getElementById(
+      side==='w'?'whiteDifficultySelect':'blackDifficultySelect'
+    ).value;
+    (side==='w'?stockfishWhite:stockfishBlack)
+      .postMessage('setoption name Skill Level value '+val);
+  }
+  function autoPlayEngineVsEngine(){
+    if(game.game_over()){ updateStatus(); return; }
+    const fen=game.fen(), turn=game.turn();
+    const diff=parseInt(document.getElementById(
+      turn==='w'?'whiteDifficultySelect':'blackDifficultySelect'
+    ).value,10);
+    if(diff===-1){
+      const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+      chooseWorstMoveUsingStockfish(wd).then(mv=>{
+        if(mv) game.move(mv);
+        drawBoard();
+        setTimeout(autoPlayEngineVsEngine,250);
+      });
+    } else {
+      const w = (turn==='w'?stockfishWhite:stockfishBlack);
+      w.postMessage('position fen '+fen);
+      w.postMessage('go movetime 500');
+    }
+  }
+
+  // --- Analysis Mode ---
+  document.getElementById('analyzeButton').onclick = ()=>{
+    const fen = document.getElementById('analysisFEN').value.trim();
+    const out = document.getElementById('analysisOutput');
+    const c = new Chess();
+    if(!c.load(fen)){ out.textContent='Invalid FEN.'; return; }
+    out.textContent = 'Analyzing…';
+    evaluateMoveWithStockfish(fen,16).then(cp=>{
+      out.textContent = cp>0
+        ? `+${cp} cp (White advantage)`
+        : cp<0
+          ? `${cp} cp (Black advantage)`
+          : '0 cp (Equal)';
+    });
+  };
+
+  // --- UI Logic ---
+  function updateWorstDepthControlVisibility(){
+    const m=currentMode; let show=false;
+    if(m==='stockfish' && document.getElementById('difficultySelect').value==='-1') show=true;
+    if(m==='enginevengine' && (
+      document.getElementById('whiteDifficultySelect').value==='-1' ||
+      document.getElementById('blackDifficultySelect').value==='-1'
+    )) show=true;
+    document.getElementById('worst-depth-control').style.display = show?'inline':'none';
+  }
+
+  function updateUI(){
+    const m = document.getElementById('modeSelect').value;
+    currentMode = m;
+    // show/hide groups
+    document.getElementById('single-difficulty').style.display = m==='stockfish'?'inline':'none';
+    document.getElementById('losing-depth').style.display     = m==='losing'   ?'inline':'none';
+    document.getElementById('engine-levels').style.display   = m==='enginevengine'?'inline':'none';
+    document.getElementById('setup-controls').style.display  = m==='setup'    ?'inline':'none';
+    document.getElementById('analysis-controls').style.display = m==='analysis'?'inline':'none';
+    document.getElementById('startEngineVsEngine').style.display = m==='enginevengine'?'inline-block':'none';
+    document.getElementById('piece-palette').style.display      = m==='setup'? 'block':'none';
+    document.getElementById('evalBarContainer').style.display   = 
+      (document.getElementById('evalBarToggle').checked && 
+       ['twoplayer','stockfish','losing','enginevengine'].includes(m)
+      )? 'block':'none';
+    updateWorstDepthControlVisibility();
+
+    if(m==='setup'){ initializeSetupBoard(); createPiecePalette(); }
+    // if leaving setup (but not enginevengine) reload customFEN:
+    if(m!=='setup' && m!=='enginevengine' && customFEN){
+      game.load(customFEN); drawBoard();
+    }
+  }
+
+  function resetGame(){
+    if(customFEN && currentMode!=='setup') game.load(customFEN);
+    else game.reset();
+    selectedSquare=null; drawBoard();
+    if(currentMode==='enginevengine') setTimeout(autoPlayEngineVsEngine,250);
+  }
+
+  // --- Event Listeners ---
+  document.getElementById('modeSelect').addEventListener('change',()=>{
+    updateUI(); resetGame();
+  });
+  document.getElementById('evalBarToggle').addEventListener('change',updateUI);
+  document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('finishSetupButton').addEventListener('click',finishSetup);
+  document.getElementById('startEngineVsEngine').addEventListener('click',initEngineVsEngine);
+  document.getElementById('resetButton').addEventListener('click',resetGame);
+
+  // --- Initialize on load ---
+  createBoard();
+  drawBoard();
+  updateUI();
   </script>
 </body>
 </html>
