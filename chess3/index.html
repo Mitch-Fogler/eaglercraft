@@ -11,42 +11,57 @@
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
     #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
-    /* Board & Eval‑Bar & Analysis container */
+    /* Board & eval-bar container */
     #board-container {
       display: flex; justify-content: center; align-items: flex-start;
       margin-bottom: 10px;
     }
-    #evalBarContainer { display: none; }
-    #evalBar { width:100%; height:100%; background:#eee; }
+    #evalBarContainer {
+      display: none; /* shown by checkbox */
+      width: 12px; height: 480px; margin-right: 10px;
+      border: 1px solid #333;
+    }
+    #evalBar {
+      width: 100%; height: 100%;
+      background: #eee;
+    }
 
+
+
+    
     /* Chessboard */
     #chessboard { display: inline-block; }
     table { border-collapse: collapse; }
     td {
-      width:60px; height:60px;
-      text-align:center; vertical-align:middle;
-      font-size:42px; cursor:pointer; user-select:none;
+      width: 60px; height: 60px;
+      text-align: center; vertical-align: middle;
+      font-size: 42px; cursor: pointer; user-select: none;
     }
-    .light { background:#f0d9b5; }
-    .dark  { background:#b58863; }
-    .selected { outline:3px solid red; }
+    .light { background: #f0d9b5 }
+    .dark  { background: #b58863 }
+    .selected { outline: 3px solid red }
 
-    /* Analysis Panel */
-    #analysis-panel {
-      width:260px; margin-left:10px; font-size:14px; line-height:1.3;
+    /* Controls */
+    #resetButton, #startEngineVsEngine, #finishSetupButton, #analyzeButton {
+      margin-top: 10px; padding: 5px 15px; font-size: 16px;
+    }
+    /* Hide groups by default */
+    #single-difficulty,
+    #losing-depth,
+    #engine-levels,
+    #worst-depth-control,
+    #setup-controls,
+    #piece-palette,
+    #analysis-controls {
       display: none;
     }
-    #analysis-panel button,
-    #analysis-panel select {
-      margin:4px 0; font-size:14px; width:100%;
+    /* Palette */
+    #piece-palette {
+      margin: 10px auto; width: 600px; text-align: center;
     }
-    #pv-list {
-      max-height:300px; overflow-y:auto; padding:0; list-style:none;
-      margin:4px 0;
+    #piece-palette button {
+      font-size: 24px; margin: 2px; padding: 5px 10px; cursor: pointer;
     }
-    #pv-list li { padding:2px 4px; cursor:pointer; }
-    #pv-list li:hover { background:#eef; }
-    #pv-list .pv-header { font-weight:bold; }
   </style>
 </head>
 <body>
@@ -63,44 +78,120 @@
       <option value="analysis">Analysis Mode</option>
     </select>
 
-    <!-- Show/hide the Start Analysis button only in Analysis mode -->
-    <span id="analysis-controls" style="display:none;">
-      <button id="startAnalysis">Start Analysis</button>
+    <!-- Eval‑Bar toggle -->
+    <label><input type="checkbox" id="evalBarToggle"/> Show eval bar</label>
+
+    <!-- Single‑player difficulty -->
+    <span id="single-difficulty">
+      <label>Difficulty:</label>
+      <select id="difficultySelect">
+        <option value="-1">-1</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
+      </select>
     </span>
+
+    <!-- Losing‑depth -->
+    <span id="losing-depth">
+      <label>Losing Depth:</label>
+      <select id="losingDepthSelect">
+        <option>1</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option selected>10</option><option>11</option><option>12</option>
+        <option>13</option><option>14</option><option>15</option><option>16</option>
+        <option>17</option><option>18</option><option>19</option><option>20</option>
+      </select>
+    </span>
+
+    <!-- Engine‑v‑engine levels -->
+    <span id="engine-levels">
+      <label>White Skill:</label>
+      <select id="whiteDifficultySelect">
+        <option value="-1">-1</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
+      </select>
+      <label>Black Skill:</label>
+      <select id="blackDifficultySelect">
+        <option value="-1">-1</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option>
+        <option>4</option><option selected>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>11</option>
+        <option>12</option><option>13</option><option>14</option><option>15</option>
+        <option>16</option><option>17</option><option>18</option><option>19</option>
+        <option>20</option>
+      </select>
+    </span>
+
+    <!-- Worst‑move depth -->
+    <span id="worst-depth-control">
+      <label>Worst Move Depth (for –1):</label>
+      <input type="number" id="worstDepthInput" min="1" max="20" value="10"/>
+    </span>
+
+    <!-- Setup controls -->
+    <span id="setup-controls">
+      <div>Setup Position (select palette, then click square):</div>
+      <label>Turn:</label>
+      <select id="turnSelect">
+        <option value="w" selected>White to move</option>
+        <option value="b">Black to move</option>
+      </select>
+      <button id="finishSetupButton">Finish Setup</button>
+    </span>
+
+    <!-- Analysis controls -->
+    <span id="analysis-controls" style="display:none;">
+  <button id="startAnalysis">Start Analysis</button>
+</span>
   </div>
 
-  <!-- Piece palette and other controls unchanged... -->
+  <!-- Palette -->
   <div id="piece-palette"></div>
 
-  <!-- Board + Eval‑Bar + Analysis Panel -->
+  <!-- Board + Eval‑Bar -->
   <div id="board-container">
     <div id="evalBarContainer"><div id="evalBar"></div></div>
     <div id="chessboard"></div>
-    <div id="analysis-panel">
-      <button id="stopAnalysis" disabled>Stop Analysis</button>
-      <button id="hideAnalysis">Hide</button>
-      <label>Depth:</label>
-      <select id="depthSelect">
-        <option>8</option><option>10</option><option>12</option><option>14</option>
-        <option selected>16</option><option>18</option><option>20</option>
-      </select>
-      <label># Lines:</label>
-      <div style="display:flex; align-items:center;">
-        <button id="decreaseLines">−</button>
-        <span id="linesCount" style="flex:1; text-align:center;">3</span>
-        <button id="increaseLines">+</button>
-      </div>
-      <label>Eval:</label> <span id="numericEval">0.00</span>
-      <ul id="pv-list">
-        <li class="pv-header">Principal Variations:</li>
-      </ul>
-      <button id="importFEN">Import FEN</button>
-      <button id="importPGN">Import PGN</button>
-      <button id="setupPosition">Setup Position</button>
-      <button id="playPosition">Play Position</button>
-    </div>
+
+
+<div id="analysis-panel">
+  <button id="stopAnalysis" disabled>Stop Analysis</button>
+  <button id="hideAnalysis">Hide</button>
+  <label>Depth:</label>
+  <select id="depthSelect"> … </select>
+  <label># Lines:</label>
+  <div style="display:flex; align-items:center;">
+    <button id="decreaseLines">−</button>
+    <span id="linesCount">3</span>
+    <button id="increaseLines">+</button>
+  </div>
+  <label>Eval:</label> <span id="numericEval">0.00</span>
+  <ul id="pv-list">
+    <li class="pv-header">Principal Variations:</li>
+  </ul>
+  <button id="importFEN">Import FEN</button>
+  <button id="importPGN">Import PGN</button>
+  <button id="setupPosition">Setup Position</button>
+  <button id="playPosition">Play Position</button>
+</div>
+
+
+
+
+
+    
   </div>
 
+  <!-- Controls & version -->
   <button id="startEngineVsEngine">Start Engine vs Engine</button>
   <button id="resetButton">Reset Game</button>
   <div id="status"></div>
@@ -108,205 +199,510 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script>
-  // === Globals ===
+  // --- Globals ---
   const game = new Chess();
+  let currentMode = 'twoplayer';
+  let humanColor = 'w';
+  let customFEN = null;
   const files = ['a','b','c','d','e','f','g','h'];
-  let currentMode = 'twoplayer', humanColor = 'w', customFEN = null;
-  let selectedSquare = null;
-  let engine = null, isAnalyzing = false, pvCount = 3;
+  let boardSetup = {}, selectedPalettePiece = '', selectedSquare = null;
+  let stockfish, stockfishWhite, stockfishBlack;
 
-  // === Board Rendering ===
-  function createBoard(){
+  // --- Board Creation & Drawing ---
+  function createBoard() {
     const boardDiv = document.getElementById('chessboard');
-    let html = '<table>';
-    for(let r=8;r>=1;r--){
-      html += '<tr>';
-      for(let f=0;f<8;f++){
-        const sq = files[f] + r;
-        html += `<td id="${sq}" class="${(f+r)%2?'light':'dark'}"></td>`;
+    const tbl = document.createElement('table');
+    for(let i=0;i<8;i++){
+      const tr = document.createElement('tr');
+      const rank = 8 - i;
+      for(let j=0;j<8;j++){
+        const td = document.createElement('td');
+        const sq = files[j] + rank;
+        td.id = sq;
+        td.className = ((i+j)%2)? 'light':'dark';
+        td.addEventListener('click', onCellClick);
+        tr.appendChild(td);
       }
-      html += '</tr>';
+      tbl.appendChild(tr);
     }
-    html += '</table>';
-    boardDiv.innerHTML = html;
-    document.querySelectorAll('#chessboard td').forEach(td=>{
-      td.onclick = onCellClick;
-    });
+    boardDiv.innerHTML = '';
+    boardDiv.appendChild(tbl);
   }
 
-  function drawBoard(){
-    const b = game.board();
-    for(let r=8;r>=1;r--){
-      for(let f=0;f<8;f++){
-        const sq = files[f]+r;
-        const td = document.getElementById(sq);
-        const pc = b[8-r][f];
-        td.textContent = pc ? unicode(pc) : '';
-        td.classList.remove('selected');
-      }
-    }
-    updateStatus();
-  }
-
-  function unicode(p){
+  function getUnicode(piece) {
     const m = {
       p:{w:'♙',b:'♟'}, r:{w:'♖',b:'♜'},
       n:{w:'♘',b:'♞'}, b:{w:'♗',b:'♝'},
       q:{w:'♕',b:'♛'}, k:{w:'♔',b:'♚'}
     };
-    return m[p.type][p.color];
+    return m[piece.type][piece.color];
+  }
+
+  function drawBoard() {
+    const b = game.board();
+    for(let i=0;i<8;i++){
+      const rank = 8 - i;
+      for(let j=0;j<8;j++){
+        const sq = files[j] + rank;
+        const td = document.getElementById(sq);
+        const pc = b[i][j];
+        td.innerHTML = pc? getUnicode(pc): '';
+        td.classList.remove('selected');
+      }
+    }
+    updateStatus();
+    if(document.getElementById('evalBarToggle').checked) updateEvalBar();
+  }
+
+  function drawSetupBoard() {
+    for(let r=8;r>=1;r--){
+      for(let j=0;j<8;j++){
+        const sq = files[j] + r;
+        const td = document.getElementById(sq);
+        const code = boardSetup[sq]||'';
+        td.innerHTML = code? getUnicode({type:code[1],color:code[0]}):'';
+      }
+    }
   }
 
   function updateStatus(){
-    let s = '';
+    let s='';
     if(game.in_checkmate()){
-      s = `Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
+      s=`Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
     } else if(game.in_draw()){
-      s = 'Game over: drawn position.';
+      s='Game over: drawn position.';
     } else {
-      s = `${game.turn()==='w'?'White':'Black'} to move.` +
-          (game.in_check() ? ' Check!' : '');
+      s=`${game.turn()==='w'?'White':'Black'} to move.` +
+        (game.in_check()?' Check!':'');
     }
     document.getElementById('status').textContent = s;
   }
 
-  // === Cell Click (only for OTB, not analysis) ===
+  // --- Evaluation Bar ---
+  function updateEvalBar(){
+    const fen = game.fen();
+    evaluateMoveWithStockfish(fen,12).then(cp=>{
+      const pctBlack = Math.min(Math.max(-cp/1000,0),1);
+      const bar = document.getElementById('evalBar');
+      bar.style.background = 
+        `linear-gradient(to top, black ${(pctBlack*100).toFixed(1)}%, white ${(pctBlack*100).toFixed(1)}%)`;
+    });
+  }
+
+  // --- Palette for Setup ---
+  function createPiecePalette(){
+    const pal = document.getElementById('piece-palette');
+    const items = [
+      {lbl:'Clear',code:''},{lbl:'♙',code:'wp'},{lbl:'♘',code:'wn'},
+      {lbl:'♗',code:'wb'},{lbl:'♖',code:'wr'},{lbl:'♕',code:'wq'},
+      {lbl:'♔',code:'wk'},{lbl:'♟',code:'bp'},{lbl:'♞',code:'bn'},
+      {lbl:'♝',code:'bb'},{lbl:'♜',code:'br'},{lbl:'♛',code:'bq'},
+      {lbl:'♚',code:'bk'}
+    ];
+    pal.innerHTML='';
+    items.forEach(it=>{
+      const b=document.createElement('button');
+      b.innerText=it.lbl;
+      b.onclick=()=>selectPalettePiece(it.code);
+      pal.appendChild(b);
+    });
+    selectPalettePiece('');
+  }
+
+  function selectPalettePiece(code){
+    selectedPalettePiece=code;
+    Array.from(document.getElementById('piece-palette')
+      .children).forEach(b=>{
+      b.style.border = 
+        ( code===''?b.innerText==='Clear'
+          : b.innerText===getUnicode({type:code[1],color:code[0]})
+        )? '2px solid red':'' ;
+    });
+  }
+
+  // --- Click Handling ---
   function onCellClick(e){
-    if(currentMode === 'analysis') return; // no board moves in analysis
-    // ... your existing onCellClick logic for other modes ...
-    // (unchanged)
-  }
-
-  // === Mode Switch ===
-  document.getElementById('modeSelect').onchange = () => {
-    currentMode = document.getElementById('modeSelect').value;
-    // show/hide Start Analysis button
-    document.getElementById('analysis-controls').style.display =
-      currentMode==='analysis' ? 'inline' : 'none';
-    // hide panel when leaving
-    if(currentMode!=='analysis'){
-      stopAnalysis();
-      document.getElementById('analysis-panel').style.display = 'none';
+    const sq=e.currentTarget.id;
+    if(currentMode==='setup'){
+      boardSetup[sq]=selectedPalettePiece;
+      drawSetupBoard();
+      return;
     }
-    // reset the game for all other modes
-    // ... your existing resetGame() logic ...
-  };
-
-  // === Analysis Core ===
-  function initAnalysisEngine(){
-    if(engine) engine.terminate();
-    engine = new Worker('stockfish.js');
-    engine.onmessage = e => onAnalysisMsg(e.data);
-    engine.postMessage('uci');
-  }
-
-  function startAnalysis(){
-    initAnalysisEngine();
-    isAnalyzing = true;
-    document.getElementById('stopAnalysis').disabled = false;
-    document.getElementById('analysis-panel').style.display = 'block';
-    sendAnalysis();
-  }
-  document.getElementById('startAnalysis').onclick = startAnalysis;
-
-  function stopAnalysis(){
-    isAnalyzing = false;
-    document.getElementById('stopAnalysis').disabled = true;
-    if(engine) engine.postMessage('stop');
-  }
-  document.getElementById('stopAnalysis').onclick = stopAnalysis;
-
-  document.getElementById('hideAnalysis').onclick = () => {
-    document.getElementById('analysis-panel').style.display = 'none';
-    stopAnalysis();
-  };
-
-  document.getElementById('increaseLines').onclick = () => {
-    pvCount = Math.min(10, pvCount + 1);
-    document.getElementById('linesCount').textContent = pvCount;
-    if(isAnalyzing) sendAnalysis();
-  };
-  document.getElementById('decreaseLines').onclick = () => {
-    pvCount = Math.max(1, pvCount - 1);
-    document.getElementById('linesCount').textContent = pvCount;
-    if(isAnalyzing) sendAnalysis();
-  };
-  document.getElementById('depthSelect').onchange = () => {
-    if(isAnalyzing) sendAnalysis();
-  };
-
-  function sendAnalysis(){
-    engine.postMessage('ucinewgame');
-    engine.postMessage('position fen ' + game.fen());
-    engine.postMessage('setoption name MultiPV value ' + pvCount);
-    engine.postMessage('setoption name UCI_AnalyseMode value true');
-    engine.postMessage('go depth ' + (+document.getElementById('depthSelect').value));
-  }
-
-  function onAnalysisMsg(line){
-    if(!line.startsWith('info')) return;
-    const t = line.split(' ');
-    const mpvIdx = t.indexOf('multipv');
-    const scIdx  = t.indexOf('score');
-    const pvIdx  = t.indexOf('pv');
-    if(mpvIdx > -1 && scIdx > -1 && pvIdx > -1 && t[scIdx+1]==='cp'){
-      const num  = +t[mpvIdx+1];
-      const cp   = +t[scIdx+2];
-      const moves = t.slice(pvIdx+1);
-      if(num===1){
-        document.getElementById('numericEval')
-          .textContent = (cp>=0?'+':'') + (cp/100).toFixed(2);
+    if(currentMode==='enginevengine') return;
+    if(!selectedSquare){
+      const pc=game.get(sq);
+      if(!pc||pc.color!==game.turn()) return;
+      if((currentMode==='stockfish'||currentMode==='losing')&&pc.color!==humanColor) return;
+      selectedSquare=sq; e.currentTarget.classList.add('selected');
+    } else {
+      if(selectedSquare===sq){
+        document.getElementById(sq).classList.remove('selected');
+        selectedSquare=null; return;
       }
-      updatePVList(num, cp, moves);
+      let promo='q', pc=game.get(selectedSquare);
+      if(pc&&pc.type==='p'&&((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))){
+        const c=prompt('Promote to (q,r,b,n):','q');
+        if(c&&'qrbn'.includes(c.toLowerCase())) promo=c.toLowerCase();
+      }
+      const mv=game.move({from:selectedSquare,to:sq,promotion:promo});
+      if(!mv) alert('Invalid move!');
+      selectedSquare=null; drawBoard();
+      // engine response
+      if((currentMode==='stockfish'||currentMode==='losing')
+         && game.turn()!==humanColor && !game.game_over()){
+        if(currentMode==='stockfish'){
+          const d=parseInt(document.getElementById('difficultySelect').value,10);
+          if(d===-1){
+            const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+            setTimeout(()=>{
+              chooseWorstMoveUsingStockfish(wd).then(m=>{
+                if(m) game.move(m);
+                drawBoard();
+              });
+            },250);
+          } else setTimeout(()=>askEngineForMove(game.fen()),250);
+        } else {
+          setTimeout(()=>{
+            chooseWorstMoveUsingStockfish().then(m=>{
+              if(m) game.move(m);
+              drawBoard();
+            });
+          },250);
+        }
+      }
     }
   }
 
-  function updatePVList(num, cp, moves){
-    const ul = document.getElementById('pv-list');
-    let li = ul.querySelector(`li[data-pv="${num}"]`);
-    if(!li){
-      li = document.createElement('li');
-      li.dataset.pv = num;
-      li.onclick = () => playPV(moves);
-      ul.appendChild(li);
+  // --- Setup Mode Functions ---
+  function initializeSetupBoard(){
+    boardSetup={};
+    for(let r=1;r<=8;r++)for(let f of files) boardSetup[f+r]='';
+    drawSetupBoard();
+  }
+  function finishSetup(){
+    const turn=document.getElementById('turnSelect').value;
+    const parts=[];
+    for(let r=8;r>=1;r--){
+      let row='',empty=0;
+      for(let f of files){
+        const c=boardSetup[f+r]||'';
+        if(!c) empty++;
+        else{
+          if(empty){row+=empty; empty=0;}
+          let L=c[1];
+          L=(c[0]==='w'?L.toUpperCase():L.toLowerCase());
+          row+=L;
+        }
+      }
+      if(empty) row+=empty;
+      parts.push(row);
     }
-    li.textContent = `${num}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
+    customFEN=parts.join('/')+' '+turn+' - - 0 1';
+    game.load(customFEN);
+    drawBoard();
+    alert('Custom position applied. Switch mode to play.');
   }
 
-  function playPV(moves){
-    game.reset();
-    moves.forEach(mv => game.move(mv));
-    drawBoard();
+  // --- Stockfish Integration ---
+  function initStockfish(){
+    if(typeof Worker==='undefined') return console.error('No Web Workers');
+    if(!stockfish){
+      stockfish=new Worker('stockfish.js');
+      stockfish.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+          }
+        }
+      };
+      stockfish.postMessage('uci');
+      setTimeout(updateSingleEngineDifficulty,500);
+    } else updateSingleEngineDifficulty();
+  }
+  function updateSingleEngineDifficulty(){
+    const d=document.getElementById('difficultySelect').value;
+    stockfish.postMessage('setoption name Skill Level value '+d);
+  }
+  function askEngineForMove(fen){
+    stockfish.postMessage('position fen '+fen);
+    stockfish.postMessage('go movetime 500');
+  }
+  function evaluateMoveWithStockfish(fen,depth=12){
+    return new Promise(res=>{
+      const w=new Worker('stockfish.js');
+      let score=null;
+      w.onmessage=e=>{
+        const L=e.data;
+        if(L.includes('score cp')){
+          const m=L.match(/score cp (-?\d+)/);
+          if(m) score=parseInt(m[1],10);
+        }
+        if(L.startsWith('bestmove')){
+          w.terminate(); res(score);
+        }
+      };
+      w.postMessage('uci');
+      setTimeout(()=>{
+        w.postMessage('position fen '+fen);
+        w.postMessage('go depth '+depth);
+      },200);
+    });
+  }
+  function chooseWorstMoveUsingStockfish(customDepth){
+    const moves=game.moves({verbose:true});
+    if(!moves.length) return Promise.resolve(null);
+    const depth=(customDepth!==undefined?customDepth:
+      parseInt(document.getElementById('losingDepthSelect').value,10));
+    const promises=moves.map(m=>{
+      const c=new Chess(game.fen()); c.move(m);
+      return evaluateMoveWithStockfish(c.fen(),depth)
+        .then(s=>({move:m,score:s}));
+    });
+    return Promise.all(promises).then(rs=>
+      rs.reduce((a,b)=>b.score>a.score?b:a,rs[0]).move
+    );
+  }
+  function getEnginePromotionMove(fen,from,to){
+    const p=['q','r','b','n'];
+    for(let pi of p){
+      const c=new Chess(fen);
+      const mv=c.move({from,to,promotion:pi});
+      if(mv&&!c.in_draw()) return {from,to,promotion:pi};
+    }
+    return {from,to,promotion:'q'};
+  }
+  function fixEnginePromotion(bestMove,fen){
+    const f=bestMove.substr(0,2), t=bestMove.substr(2,2);
+    if(bestMove.length===5){
+      const pr=bestMove[4];
+      const c=new Chess(fen);
+      c.move({from:f,to:t,promotion:pr});
+      if(c.in_draw()) return getEnginePromotionMove(fen,f,t);
+      return {from:f,to:t,promotion:pr};
+    }
+    return {from:f,to:t};
   }
 
-  document.getElementById('importFEN').onclick = () => {
-    const fen = prompt('Paste FEN:');
-    if(fen && game.load(fen)) drawBoard();
-    else alert('Invalid FEN');
-  };
-  document.getElementById('importPGN').onclick = () => {
-    const pgn = prompt('Paste PGN:');
-    try{ game.load_pgn(pgn); drawBoard(); }
-    catch{ alert('Invalid PGN'); }
-  };
-  document.getElementById('setupPosition').onclick = () => {
-    document.getElementById('modeSelect').value = 'setup';
-    document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-  };
-  document.getElementById('playPosition').onclick = () => {
-    customFEN = game.fen();
-    document.getElementById('modeSelect').value = 'twoplayer';
-    document.getElementById('modeSelect').dispatchEvent(new Event('change'));
-  };
+  // --- Engine vs Engine ---
+  function initEngineVsEngine(){
+    if(stockfish){ stockfish.terminate(); stockfish=null; }
+    if(typeof Worker==='undefined') return console.error('No W');
+    // White
+    if(!stockfishWhite){
+      stockfishWhite=new Worker('stockfish.js');
+      stockfishWhite.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')&&game.turn()==='w'){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+            setTimeout(autoPlayEngineVsEngine,250);
+          }
+        }
+      };
+      stockfishWhite.postMessage('uci');
+      setTimeout(()=>updateEngineDifficulty('w'),500);
+    } else updateEngineDifficulty('w');
+    // Black
+    if(!stockfishBlack){
+      stockfishBlack=new Worker('stockfish.js');
+      stockfishBlack.onmessage=e=>{
+        const m=e.data;
+        if(m.startsWith('bestmove')&&game.turn()==='b'){
+          const mv=m.split(' ')[1];
+          if(mv!=='(none)'){
+            const mo=fixEnginePromotion(mv,game.fen());
+            game.move(mo); drawBoard();
+            setTimeout(autoPlayEngineVsEngine,250);
+          }
+        }
+      };
+      stockfishBlack.postMessage('uci');
+      setTimeout(()=>updateEngineDifficulty('b'),500);
+    } else updateEngineDifficulty('b');
+    autoPlayEngineVsEngine();
+  }
+  function updateEngineDifficulty(side){
+    const val=document.getElementById(
+      side==='w'?'whiteDifficultySelect':'blackDifficultySelect'
+    ).value;
+    (side==='w'?stockfishWhite:stockfishBlack)
+      .postMessage('setoption name Skill Level value '+val);
+  }
+  function autoPlayEngineVsEngine(){
+    if(game.game_over()){ updateStatus(); return; }
+    const fen=game.fen(), turn=game.turn();
+    const diff=parseInt(document.getElementById(
+      turn==='w'?'whiteDifficultySelect':'blackDifficultySelect'
+    ).value,10);
+    if(diff===-1){
+      const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
+      chooseWorstMoveUsingStockfish(wd).then(mv=>{
+        if(mv) game.move(mv);
+        drawBoard();
+        setTimeout(autoPlayEngineVsEngine,250);
+      });
+    } else {
+      const w = (turn==='w'?stockfishWhite:stockfishBlack);
+      w.postMessage('position fen '+fen);
+      w.postMessage('go movetime 500');
+    }
+  }
 
-  // === Initialization ===
-  window.onload = () => {
-    createBoard();
-    drawBoard();
-    updateStatus();
-    // show startAnalysis only in analysis mode
-    document.getElementById('analysis-controls').style.display = 'none';
-  };
+  // --- Analysis Mode ---
+  // — Analysis Engine Init —
+function initAnalysisEngine(){
+  if (engine) engine.terminate();
+  engine = new Worker('stockfish.js');
+  engine.onmessage = e => onAnalysisMsg(e.data);
+  engine.postMessage('uci');
+}
+
+// — Start / Stop —
+function startAnalysis(){
+  initAnalysisEngine();
+  isAnalyzing = true;
+  document.getElementById('stopAnalysis').disabled = false;
+  document.getElementById('analysis-panel').style.display = 'block';
+  sendAnalysis();
+}
+function stopAnalysis(){
+  isAnalyzing = false;
+  document.getElementById('stopAnalysis').disabled = true;
+  if (engine) engine.postMessage('stop');
+}
+
+// — Wire up buttons —
+document.getElementById('startAnalysis').onclick = startAnalysis;
+document.getElementById('stopAnalysis').onclick  = stopAnalysis;
+document.getElementById('hideAnalysis').onclick  = () => {
+  document.getElementById('analysis-panel').style.display = 'none';
+  stopAnalysis();
+};
+
+// — MultiPV controls —
+document.getElementById('increaseLines').onclick = () => {
+  pvCount = Math.min(10, pvCount + 1);
+  document.getElementById('linesCount').textContent = pvCount;
+  if (isAnalyzing) sendAnalysis();
+};
+document.getElementById('decreaseLines').onclick = () => {
+  pvCount = Math.max(1, pvCount - 1);
+  document.getElementById('linesCount').textContent = pvCount;
+  if (isAnalyzing) sendAnalysis();
+};
+document.getElementById('depthSelect').onchange = () => {
+  if (isAnalyzing) sendAnalysis();
+};
+
+// — Kick off the engine’s UCI‑MultiPV analysis —
+function sendAnalysis(){
+  engine.postMessage('ucinewgame');
+  engine.postMessage('position fen ' + game.fen());
+  engine.postMessage('setoption name MultiPV value ' + pvCount);
+  engine.postMessage('setoption name UCI_AnalyseMode value true');
+  engine.postMessage('go depth ' + (+document.getElementById('depthSelect').value));
+}
+
+// — Parse “info” lines, update eval & PV list —
+function onAnalysisMsg(line){
+  if (!line.startsWith('info')) return;
+  const t = line.split(' ');
+  const mpvIdx = t.indexOf('multipv'), scIdx = t.indexOf('score'), pvIdx = t.indexOf('pv');
+  if (mpvIdx > -1 && scIdx > -1 && pvIdx > -1 && t[scIdx+1]==='cp'){
+    const num   = +t[mpvIdx+1];
+    const cp    = +t[scIdx+2];
+    const moves = t.slice(pvIdx+1);
+    if (num === 1) {
+      document.getElementById('numericEval').textContent =
+        (cp >= 0 ? '+' : '') + (cp/100).toFixed(2);
+    }
+    updatePVList(num, cp, moves);
+  }
+}
+
+// — Build/update the PV list and allow clicking —
+function updatePVList(num, cp, moves){
+  const ul = document.getElementById('pv-list');
+  let li = ul.querySelector(`li[data-pv="${num}"]`);
+  if (!li) {
+    li = document.createElement('li');
+    li.dataset.pv = num;
+    li.onclick = () => playPV(moves);
+    ul.appendChild(li);
+  }
+  li.textContent = `${num}. ${moves.join(' ')} (${(cp/100).toFixed(2)})`;
+}
+function playPV(moves){
+  game.reset();
+  moves.forEach(mv => game.move(mv));
+  drawBoard();
+}
+  // --- UI Logic ---
+  function updateWorstDepthControlVisibility(){
+    const m=currentMode; let show=false;
+    if(m==='stockfish' && document.getElementById('difficultySelect').value==='-1') show=true;
+    if(m==='enginevengine' && (
+      document.getElementById('whiteDifficultySelect').value==='-1' ||
+      document.getElementById('blackDifficultySelect').value==='-1'
+    )) show=true;
+    document.getElementById('worst-depth-control').style.display = show?'inline':'none';
+  }
+
+  function updateUI(){
+    const m = document.getElementById('modeSelect').value;
+    currentMode = m;
+    // show/hide groups
+    document.getElementById('single-difficulty').style.display = m==='stockfish'?'inline':'none';
+    document.getElementById('losing-depth').style.display     = m==='losing'   ?'inline':'none';
+    document.getElementById('engine-levels').style.display   = m==='enginevengine'?'inline':'none';
+    document.getElementById('setup-controls').style.display  = m==='setup'    ?'inline':'none';
+    
+    // show/hide the “Start Analysis” button
+document.getElementById('analysis-controls').style.display =
+  currentMode === 'analysis' ? 'inline' : 'none';
+    document.getElementById('startEngineVsEngine').style.display = m==='enginevengine'?'inline-block':'none';
+    document.getElementById('piece-palette').style.display      = m==='setup'? 'block':'none';
+    document.getElementById('evalBarContainer').style.display   = 
+      (document.getElementById('evalBarToggle').checked && 
+       ['twoplayer','stockfish','losing','enginevengine'].includes(m)
+      )? 'block':'none';
+    updateWorstDepthControlVisibility();
+
+    if(m==='setup'){ initializeSetupBoard(); createPiecePalette(); }
+    // if leaving setup (but not enginevengine) reload customFEN:
+    if(m!=='setup' && m!=='enginevengine' && customFEN){
+      game.load(customFEN); drawBoard();
+    }
+  }
+
+  function resetGame(){
+    if(customFEN && currentMode!=='setup') game.load(customFEN);
+    else game.reset();
+    selectedSquare=null; drawBoard();
+    if(currentMode==='enginevengine') setTimeout(autoPlayEngineVsEngine,250);
+  }
+
+  // --- Event Listeners ---
+  document.getElementById('modeSelect').addEventListener('change',()=>{
+    updateUI(); resetGame();
+  });
+  document.getElementById('evalBarToggle').addEventListener('change',updateUI);
+  document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
+  document.getElementById('finishSetupButton').addEventListener('click',finishSetup);
+  document.getElementById('startEngineVsEngine').addEventListener('click',initEngineVsEngine);
+  document.getElementById('resetButton').addEventListener('click',resetGame);
+
+  // --- Initialize on load ---
+  createBoard();
+  drawBoard();
+  updateUI();
   </script>
 </body>
 </html>
