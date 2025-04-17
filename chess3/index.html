@@ -4,7 +4,13 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Mitch's Sigma Chess</title>
-  <link rel="stylesheet" href="https://unpkg.com/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"/>
+
+  <!-- chessboard.js CSS via CDNJS -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"
+        integrity="sha512-LN0tXHnDZv6mP9n1TblY8xU1C6sKfiZPOy+/PYPalLOhZW4Kk1iCFJvWgK5ZYaS+FtqlhKUhFG4fpU7Y2nx7Yg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"/>
+
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; margin-bottom: 10px; }
@@ -12,32 +18,21 @@
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
     #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
-    /* Container for board + analysis panel */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
     #analysis-panel {
       width: 260px; margin-left: 10px; font-size: 14px; line-height: 1.3;
-      display: none;  /* only visible in Analysis mode */
+      display: none;
     }
     #analysis-panel button,
     #analysis-panel select,
     #analysis-panel input { margin: 4px 0; font-size: 14px; }
 
-    /* Chessboard */
     #chessboard { width: 480px; }
-    table { border-collapse: collapse; }
-    td {
-      width: 60px; height: 60px;
-      text-align: center; vertical-align: middle;
-      font-size: 42px; cursor: pointer; user-select: none;
-    }
     .light { background: #f0d9b5; }
     .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
 
-    /* Hide old eval bar */
-    #evalBarContainer { display: none !important; }
-
-    /* Analysis panel styles */
+    /* Analysis list styling */
     #pv-list { max-height: 300px; overflow-y: auto; padding: 0; list-style: none; margin: 4px 0; }
     #pv-list li { padding: 2px 4px; cursor: pointer; }
     #pv-list li:hover { background: #eef; }
@@ -100,18 +95,26 @@
     </div>
   </div>
 
-  <!-- Status and version -->
   <div id="status"></div>
   <div id="version">v.1.8</div>
 
   <!-- Dependencies -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-  <script src="https://unpkg.com/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+          integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
+          crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"
+          integrity="sha512-R+IopO7ZIbCEuQUMtGPYfmZ+dc0xpP0hO8B0SpvWH1uxfr4Kd6z0Hsb+o8C/l6jkgkKXGB0k0W1cVYuIEGjVhw=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"
+          integrity="sha512-nFu8gkh1pW7GkXoVexJxOpUk0szbYHF8jf0fi4nXVgIyH+mREeR0uVlnhzjD+YHmMC+3R4kV0Fwd/ejVy+RrgQ=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- Your main script -->
   <script>
     // === Globals ===
     const game = new Chess();
     let board, engine, stockfishWhite, stockfishBlack;
-    let isAnalyzing = false;
+    let isAnalyzing = false, customFEN = null;
 
     // === Initialize Board ===
     function initBoard() {
@@ -123,7 +126,7 @@
       updateStatus();
     }
 
-    // === Status Update ===
+    // === Status ===
     function updateStatus() {
       let s = '';
       if (game.in_checkmate()) {
@@ -143,10 +146,9 @@
       if (!m) return 'snapback';
       board.position(game.fen());
       updateStatus();
-      // no engine auto‑response in Analysis mode
     }
 
-    // === Mode Change ===
+    // === Mode Switch ===
     document.getElementById('modeSelect').addEventListener('change', () => {
       const mode = document.getElementById('modeSelect').value;
       document.getElementById('analysis-panel').style.display =
@@ -189,9 +191,8 @@
       if (engine) engine.postMessage('stop');
     }
 
-    // === Send UCI for MultiPV ===
+    // === UCI MultiPV ===
     function sendAnalysis() {
-      if (!engine) return;
       engine.postMessage('ucinewgame');
       engine.postMessage(`position fen ${game.fen()}`);
       const depth = document.getElementById('depthSelect').value;
@@ -201,36 +202,31 @@
       engine.postMessage(`go depth ${depth}`);
     }
 
-    // === Engine Message Parsing ===
+    // === Parse Engine Output ===
     function onEngineMessage(e) {
       const line = e.data;
-      if (line.startsWith('info')) parseInfo(line);
-    }
-
-    // === Parse 'info' for MultiPV ===
-    function parseInfo(line) {
-      const tokens = line.split(' ');
-      const mpvIdx = tokens.indexOf('multipv');
-      const scIdx = tokens.indexOf('score');
-      if (mpvIdx>-1 && scIdx>-1 && tokens[scIdx+1]==='cp') {
-        const mpv = +tokens[mpvIdx+1];
-        const cp  = +tokens[scIdx+2];
-        // Update numeric evaluation for PV1
-        if (mpv === 1) {
-          const pawns = (cp/100).toFixed(2);
-          document.getElementById('numericEval')
-            .textContent = (pawns>=0?'+':'') + pawns;
-        }
-        // Extract PV moves
-        const pvIdx = tokens.indexOf('pv');
-        if (pvIdx > -1) {
-          const moves = tokens.slice(pvIdx+1);
-          updatePVList(mpv, cp, moves);
+      if (line.startsWith('info')) {
+        const tokens = line.split(' ');
+        const mpvIdx = tokens.indexOf('multipv');
+        const scIdx  = tokens.indexOf('score');
+        if (mpvIdx>-1 && scIdx>-1 && tokens[scIdx+1]==='cp') {
+          const mpv = +tokens[mpvIdx+1];
+          const cp  = +tokens[scIdx+2];
+          if (mpv === 1) {
+            const pawns = (cp/100).toFixed(2);
+            document.getElementById('numericEval')
+              .textContent = (pawns>=0?'+':'') + pawns;
+          }
+          const pvIdx = tokens.indexOf('pv');
+          if (pvIdx > -1) {
+            const moves = tokens.slice(pvIdx+1);
+            updatePVList(mpv, cp, moves);
+          }
         }
       }
     }
 
-    // === Render PV Lines ===
+    // === Display PV Lines ===
     function updatePVList(num, cp, moves) {
       const ul = document.getElementById('pv-list');
       let li = ul.querySelector(`li[data-pv="${num}"]`);
@@ -270,27 +266,24 @@
     });
     document.getElementById('setupPosition').addEventListener('click', () => {
       document.getElementById('modeSelect').value = 'setup';
-      document.getElementById('modeSelect')
-        .dispatchEvent(new Event('change'));
+      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
     });
     document.getElementById('playPosition').addEventListener('click', () => {
       customFEN = game.fen();
       document.getElementById('modeSelect').value = 'twoplayer';
-      document.getElementById('modeSelect')
-        .dispatchEvent(new Event('change'));
+      document.getElementById('modeSelect').dispatchEvent(new Event('change'));
     });
 
-    // === Reset Game (preserve custom FEN) ===
-    let customFEN = null;
+    // === Reset Game ===
     function resetGame() {
-      if (customFEN && document.getElementById('modeSelect').value!=='setup')
+      if (customFEN && document.getElementById('modeSelect').value !== 'setup')
         game.load(customFEN);
       else game.reset();
       board.position(game.fen());
       updateStatus();
     }
 
-    // === Initialize on Load ===
+    // === On Load ===
     window.onload = () => {
       initBoard();
       updateStatus();
