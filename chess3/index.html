@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Mitch's Sigma Chess</title>
+  <link rel="stylesheet" href="https://unpkg.com/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"/>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; margin-bottom: 10px; }
@@ -11,24 +12,18 @@
     #status { text-align: center; margin-top: 15px; font-size: 20px; }
     #version { text-align: center; font-size: 10px; margin-top: 10px; }
 
-    /* Board + eval bar container */
+    /* Container for board + analysis panel */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
-    /* Ensure the bar grows from the center */
-    <!-- Add this inside your HTML, next to #evalBarContainer -->
-<div id="evalBarContainer">
-  <div id="evalBar"></div>
-  <div id="evalLabel" style="text-align:center; font-size:12px; margin-top:2px;"></div>
-</div>
-#evalBarContainer { position: relative; }
-#evalBar {
-  position: absolute;
-  bottom: 50%;
-  width: 100%;
-  background: linear-gradient(to top, black, black) no-repeat bottom;
-  background-size: 100% 0%;
-}
+    #analysis-panel {
+      width: 260px; margin-left: 10px; font-size: 14px; line-height: 1.3;
+      display: none;  /* only visible in Analysis mode */
+    }
+    #analysis-panel button,
+    #analysis-panel select,
+    #analysis-panel input { margin: 4px 0; font-size: 14px; }
+
     /* Chessboard */
-    #chessboard { display: inline-block; }
+    #chessboard { width: 480px; }
     table { border-collapse: collapse; }
     td {
       width: 60px; height: 60px;
@@ -39,32 +34,20 @@
     .dark  { background: #b58863; }
     .selected { outline: 3px solid red; }
 
-    /* Controls */
-    #resetButton, #startEngineVsEngine, #finishSetupButton, #analyzePositionButton {
-      margin-top: 10px; padding: 5px 15px; font-size: 16px;
-    }
-    /* Hide optional control groups by default */
-    #single-difficulty,
-    #losing-depth,
-    #engine-levels,
-    #worst-depth-control,
-    #setup-controls,
-    #piece-palette {
-      display: none;
-    }
+    /* Hide old eval bar */
+    #evalBarContainer { display: none !important; }
 
-    /* Piece palette */
-    #piece-palette {
-      margin: 10px auto; width: 600px; text-align: center;
-    }
-    #piece-palette button {
-      font-size: 24px; margin: 2px; padding: 5px 10px; cursor: pointer;
-    }
+    /* Analysis panel styles */
+    #pv-list { max-height: 300px; overflow-y: auto; padding: 0; list-style: none; margin: 4px 0; }
+    #pv-list li { padding: 2px 4px; cursor: pointer; }
+    #pv-list li:hover { background: #eef; }
+    #pv-list .pv-header { font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>Mitch's Sigma Chess</h1>
 
+  <!-- Mode selector -->
   <div id="game-options">
     <label>Game Mode:</label>
     <select id="modeSelect">
@@ -75,547 +58,244 @@
       <option value="setup">Setup Position</option>
       <option value="analysis">Analysis Mode</option>
     </select>
-
-    <label>
-      <input type="checkbox" id="evalBarToggle"/>
-      Show eval bar
-    </label>
-
-    <!-- Single‑player difficulty -->
-    <span id="single-difficulty">
-      <label>Difficulty:</label>
-      <select id="difficultySelect">
-        <option value="-1">-1</option>
-        <option>0</option><option>1</option><option>2</option><option>3</option>
-        <option>4</option><option selected>5</option><option>6</option><option>7</option>
-        <option>8</option><option>9</option><option>10</option><option>11</option>
-        <option>12</option><option>13</option><option>14</option><option>15</option>
-        <option>16</option><option>17</option><option>18</option><option>19</option>
-        <option>20</option>
-      </select>
-    </span>
-
-    <!-- Losing‑mode depth -->
-    <span id="losing-depth">
-      <label>Losing Depth:</label>
-      <select id="losingDepthSelect">
-        <option>1</option><option>2</option><option>3</option><option>4</option>
-        <option>5</option><option>6</option><option>7</option><option>8</option>
-        <option>9</option><option selected>10</option><option>11</option><option>12</option>
-        <option>13</option><option>14</option><option>15</option><option>16</option>
-        <option>17</option><option>18</option><option>19</option><option>20</option>
-      </select>
-    </span>
-
-    <!-- Engine vs engine levels -->
-    <span id="engine-levels">
-      <label>White Skill:</label>
-      <select id="whiteDifficultySelect">
-        <option value="-1">-1</option>
-        <option>0</option><option>1</option><option>2</option><option>3</option>
-        <option>4</option><option selected>5</option><option>6</option><option>7</option>
-        <option>8</option><option>9</option><option>10</option><option>11</option>
-        <option>12</option><option>13</option><option>14</option><option>15</option>
-        <option>16</option><option>17</option><option>18</option><option>19</option>
-        <option>20</option>
-      </select>
-
-      <label>Black Skill:</label>
-      <select id="blackDifficultySelect">
-        <option value="-1">-1</option>
-        <option>0</option><option>1</option><option>2</option><option>3</option>
-        <option>4</option><option selected>5</option><option>6</option><option>7</option>
-        <option>8</option><option>9</option><option>10</option><option>11</option>
-        <option>12</option><option>13</option><option>14</option><option>15</option>
-        <option>16</option><option>17</option><option>18</option><option>19</option>
-        <option>20</option>
-      </select>
-    </span>
-
-    <!-- Worst‑move depth for –1 -->
-    <span id="worst-depth-control">
-      <label>Worst Move Depth (for -1):</label>
-      <input type="number" id="worstDepthInput" min="1" max="20" value="10"/>
-    </span>
-
-    <!-- Setup/Analyze Position UI -->
-    <span id="setup-controls">
-      <div id="setupLabel">Setup Position (select palette, then click squares):</div>
-      <label>Turn:</label>
-      <select id="turnSelect">
-        <option value="w" selected>White to move</option>
-        <option value="b">Black to move</option>
-      </select>
-      <button id="finishSetupButton">Finish Setup</button>
-      <button id="analyzePositionButton">Analyze Position</button>
-      <div id="analysisResult" style="margin-top:5px;"></div>
-    </span>
   </div>
 
-  <!-- Piece palette -->
-  <div id="piece-palette"></div>
-
-  <!-- Board + eval bar -->
+  <!-- Board + Analysis Panel -->
   <div id="board-container">
-    <div id="evalBarContainer"><div id="evalBar"></div></div>
     <div id="chessboard"></div>
+    <div id="analysis-panel">
+      <div class="button-group">
+        <button id="stopAnalysis" disabled>Stop Analysis</button>
+        <button id="hideAnalysis">Hide</button>
+      </div>
+      <div>
+        <label for="depthSelect">Depth:</label>
+        <select id="depthSelect">
+          <option>8</option><option>10</option><option>12</option><option>14</option>
+          <option selected>16</option><option>18</option><option>20</option><option>22</option><option>24</option>
+        </select>
+      </div>
+      <div>
+        <label># Lines:</label>
+        <button id="decreaseLines">–</button>
+        <span id="linesCount">3</span>
+        <button id="increaseLines">+</button>
+      </div>
+      <div>
+        <label>Eval:</label>
+        <span id="numericEval">0.00</span>
+      </div>
+      <ul id="pv-list">
+        <li class="pv-header">Principal Variations:</li>
+      </ul>
+      <hr>
+      <div>
+        <button id="importFEN">Import FEN</button>
+        <button id="importPGN">Import PGN</button>
+      </div>
+      <div>
+        <button id="setupPosition">Setup Position</button>
+        <button id="playPosition">Play Position</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Controls & version -->
-  <button id="startEngineVsEngine">Start Engine vs Engine</button>
-  <button id="resetButton">Reset Game</button>
+  <!-- Status and version -->
   <div id="status"></div>
   <div id="version">v.1.8</div>
 
+  <!-- Dependencies -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="https://unpkg.com/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script>
-  // === Globals ===
-  const game = new Chess();
-  let currentMode = 'twoplayer';
-  let humanColor = 'w';
-  let customFEN = null;
-  const files = ['a','b','c','d','e','f','g','h'];
-  let boardSetup = {}, selectedPalettePiece = '', selectedSquare = null;
-  let stockfish, stockfishWhite, stockfishBlack;
+    // === Globals ===
+    const game = new Chess();
+    let board, engine, stockfishWhite, stockfishBlack;
+    let isAnalyzing = false;
 
-  // === Board Creation & Rendering ===
-  function createBoard(){
-    const bd = document.getElementById('chessboard');
-    const tbl = document.createElement('table');
-    for(let i=0;i<8;i++){
-      const tr=document.createElement('tr');
-      const rank=8-i;
-      for(let j=0;j<8;j++){
-        const td=document.createElement('td');
-        const sq=files[j]+rank;
-        td.id=sq;
-        td.className=(i+j)%2?'light':'dark';
-        td.addEventListener('click',onCellClick);
-        tr.appendChild(td);
-      }
-      tbl.appendChild(tr);
+    // === Initialize Board ===
+    function initBoard() {
+      board = Chessboard('chessboard', {
+        draggable: true,
+        position: 'start',
+        onDrop: onMove
+      });
+      updateStatus();
     }
-    bd.innerHTML=''; bd.appendChild(tbl);
-  }
 
-  function getUnicode(piece){
-    const m={
-      p:{w:'♙',b:'♟'}, r:{w:'♖',b:'♜'},
-      n:{w:'♘',b:'♞'}, b:{w:'♗',b:'♝'},
-      q:{w:'♕',b:'♛'}, k:{w:'♔',b:'♚'}
+    // === Status Update ===
+    function updateStatus() {
+      let s = '';
+      if (game.in_checkmate()) {
+        s = `Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
+      } else if (game.in_draw()) {
+        s = 'Game over: drawn position.';
+      } else {
+        s = `${game.turn()==='w'?'White':'Black'} to move.` +
+            (game.in_check() ? ' Check!' : '');
+      }
+      document.getElementById('status').textContent = s;
+    }
+
+    // === Move Handling ===
+    function onMove(src, dst) {
+      const m = game.move({ from: src, to: dst, promotion: 'q' });
+      if (!m) return 'snapback';
+      board.position(game.fen());
+      updateStatus();
+      // no engine auto‑response in Analysis mode
+    }
+
+    // === Mode Change ===
+    document.getElementById('modeSelect').addEventListener('change', () => {
+      const mode = document.getElementById('modeSelect').value;
+      document.getElementById('analysis-panel').style.display =
+        mode === 'analysis' ? 'block' : 'none';
+      if (mode === 'analysis') startAnalysis();
+      else stopAnalysis();
+      resetGame();
+    });
+
+    // === Analysis Controls ===
+    document.getElementById('stopAnalysis').addEventListener('click', stopAnalysis);
+    document.getElementById('hideAnalysis').addEventListener('click', () => {
+      document.getElementById('analysis-panel').style.display = 'none';
+      stopAnalysis();
+    });
+    document.getElementById('increaseLines').addEventListener('click', () => {
+      let n = +document.getElementById('linesCount').textContent;
+      if (n < 10) document.getElementById('linesCount').textContent = ++n;
+      if (isAnalyzing) sendAnalysis();
+    });
+    document.getElementById('decreaseLines').addEventListener('click', () => {
+      let n = +document.getElementById('linesCount').textContent;
+      if (n > 1) document.getElementById('linesCount').textContent = --n;
+      if (isAnalyzing) sendAnalysis();
+    });
+    document.getElementById('depthSelect').addEventListener('change', () => {
+      if (isAnalyzing) sendAnalysis();
+    });
+
+    // === Start/Stop Analysis ===
+    function startAnalysis() {
+      initEngine();
+      isAnalyzing = true;
+      document.getElementById('stopAnalysis').disabled = false;
+      sendAnalysis();
+    }
+    function stopAnalysis() {
+      isAnalyzing = false;
+      document.getElementById('stopAnalysis').disabled = true;
+      if (engine) engine.postMessage('stop');
+    }
+
+    // === Send UCI for MultiPV ===
+    function sendAnalysis() {
+      if (!engine) return;
+      engine.postMessage('ucinewgame');
+      engine.postMessage(`position fen ${game.fen()}`);
+      const depth = document.getElementById('depthSelect').value;
+      const lines = document.getElementById('linesCount').textContent;
+      engine.postMessage(`setoption name MultiPV value ${lines}`);
+      engine.postMessage('setoption name UCI_AnalyseMode value true');
+      engine.postMessage(`go depth ${depth}`);
+    }
+
+    // === Engine Message Parsing ===
+    function onEngineMessage(e) {
+      const line = e.data;
+      if (line.startsWith('info')) parseInfo(line);
+    }
+
+    // === Parse 'info' for MultiPV ===
+    function parseInfo(line) {
+      const tokens = line.split(' ');
+      const mpvIdx = tokens.indexOf('multipv');
+      const scIdx = tokens.indexOf('score');
+      if (mpvIdx>-1 && scIdx>-1 && tokens[scIdx+1]==='cp') {
+        const mpv = +tokens[mpvIdx+1];
+        const cp  = +tokens[scIdx+2];
+        // Update numeric evaluation for PV1
+        if (mpv === 1) {
+          const pawns = (cp/100).toFixed(2);
+          document.getElementById('numericEval')
+            .textContent = (pawns>=0?'+':'') + pawns;
+        }
+        // Extract PV moves
+        const pvIdx = tokens.indexOf('pv');
+        if (pvIdx > -1) {
+          const moves = tokens.slice(pvIdx+1);
+          updatePVList(mpv, cp, moves);
+        }
+      }
+    }
+
+    // === Render PV Lines ===
+    function updatePVList(num, cp, moves) {
+      const ul = document.getElementById('pv-list');
+      let li = ul.querySelector(`li[data-pv="${num}"]`);
+      if (!li) {
+        li = document.createElement('li');
+        li.dataset.pv = num;
+        ul.appendChild(li);
+        li.addEventListener('click', () => {
+          game.reset();
+          moves.forEach(mv => game.move(mv));
+          board.position(game.fen());
+          updateStatus();
+        });
+      }
+      const pawns = (cp/100).toFixed(2);
+      li.textContent = `${num}. ${moves.join(' ')} (${pawns})`;
+    }
+
+    // === Stockfish Worker ===
+    function initEngine() {
+      if (engine) engine.terminate();
+      engine = new Worker('stockfish.js');
+      engine.onmessage = onEngineMessage;
+      engine.postMessage('uci');
+    }
+
+    // === Import / Setup / Play ===
+    document.getElementById('importFEN').addEventListener('click', () => {
+      const fen = prompt('Paste FEN:');
+      if (fen && game.load(fen)) board.position(game.fen());
+      else alert('Invalid FEN');
+    });
+    document.getElementById('importPGN').addEventListener('click', () => {
+      const pgn = prompt('Paste PGN:');
+      try { game.load_pgn(pgn); board.position(game.fen()); }
+      catch { alert('Invalid PGN'); }
+    });
+    document.getElementById('setupPosition').addEventListener('click', () => {
+      document.getElementById('modeSelect').value = 'setup';
+      document.getElementById('modeSelect')
+        .dispatchEvent(new Event('change'));
+    });
+    document.getElementById('playPosition').addEventListener('click', () => {
+      customFEN = game.fen();
+      document.getElementById('modeSelect').value = 'twoplayer';
+      document.getElementById('modeSelect')
+        .dispatchEvent(new Event('change'));
+    });
+
+    // === Reset Game (preserve custom FEN) ===
+    let customFEN = null;
+    function resetGame() {
+      if (customFEN && document.getElementById('modeSelect').value!=='setup')
+        game.load(customFEN);
+      else game.reset();
+      board.position(game.fen());
+      updateStatus();
+    }
+
+    // === Initialize on Load ===
+    window.onload = () => {
+      initBoard();
+      updateStatus();
+      document.getElementById('modeSelect').value = 'twoplayer';
     };
-    return m[piece.type][piece.color];
-  }
-
-  function drawBoard(){
-    const b=game.board();
-    for(let i=0;i<8;i++){
-      const rank=8-i;
-      for(let j=0;j<8;j++){
-        const sq=files[j]+rank;
-        const td=document.getElementById(sq);
-        const pc=b[i][j];
-        if(pc){
-          td.style.color=(pc.type==='p'&&pc.color==='b')?'#666':'';
-          td.innerHTML=getUnicode(pc);
-        } else {
-          td.style.color='';
-          td.innerHTML='';
-        }
-        td.classList.remove('selected');
-      }
-    }
-    updateStatus();
-    if(document.getElementById('evalBarToggle').checked) updateEvalBar();
-  }
-
-  function drawSetupBoard(){
-    for(let r=8;r>=1;r--){
-      for(let j=0;j<8;j++){
-        const sq=files[j]+r, td=document.getElementById(sq);
-        const code=boardSetup[sq]||'';
-        if(code){
-          td.style.color=(code==='bp')?'#666':'';
-          td.innerHTML=getUnicode({type:code[1],color:code[0]});
-        } else {
-          td.style.color=''; td.innerHTML='';
-        }
-      }
-    }
-  }
-
-  function updateStatus(){
-    let s='';
-    if(game.in_checkmate()){
-      s=`Game over: ${game.turn()==='w'?'Black':'White'} wins by checkmate.`;
-    } else if(game.in_draw()){
-      s='Game over: drawn position.';
-    } else {
-      s=`${game.turn()==='w'?'White':'Black'} to move.` +
-        (game.in_check()?' Check!':'');
-    }
-    document.getElementById('status').textContent=s;
-  }
-
-  // === Eval Bar ===
-  function updateEvalBar(depth = 12) {
-  // Ask engine for cp score (modify evaluateMoveWithStockfish to return cp)
-  evaluateMoveWithStockfish(game.fen(), depth).then(cp => {
-    // Convert to pawn units and format to 2 decimals
-    let pawns = cp / 100;
-    const formatted = (pawns >= 0 ? '+' : '') + pawns.toFixed(2);
-    document.getElementById('evalLabel').textContent = formatted;
-
-    // Clamp to a max (e.g. ±10 pawns) for visual scaling
-    const maxPawns = 10; 
-    pawns = Math.max(-maxPawns, Math.min(maxPawns, pawns));
-
-    // Map from [-maxPawns, +maxPawns] → [0%,100%]
-    const percent = ((pawns + maxPawns) / (2 * maxPawns)) * 100;
-
-    // Set the bar fill height
-    const bar = document.getElementById('evalBar');
-    bar.style.backgroundSize = `100% ${percent}%`;
-  });
-}
-
-// Call updateEvalBar() after each move or analysis
-
-  // === Piece Palette ===
-  function createPiecePalette(){
-    const pal=document.getElementById('piece-palette');
-    const items=[
-      {lbl:'Clear',code:''},{lbl:'♙',code:'wp'},{lbl:'♘',code:'wn'},
-      {lbl:'♗',code:'wb'},{lbl:'♖',code:'wr'},{lbl:'♕',code:'wq'},
-      {lbl:'♔',code:'wk'},{lbl:'♟',code:'bp'},{lbl:'♞',code:'bn'},
-      {lbl:'♝',code:'bb'},{lbl:'♜',code:'br'},{lbl:'♛',code:'bq'},
-      {lbl:'♚',code:'bk'}
-    ];
-    pal.innerHTML='';
-    items.forEach(it=>{
-      const b=document.createElement('button');
-      b.innerText=it.lbl;
-      b.onclick=()=>selectPalettePiece(it.code);
-      pal.appendChild(b);
-    });
-    selectPalettePiece('');
-  }
-
-  function selectPalettePiece(code){
-    selectedPalettePiece=code;
-    Array.from(document.getElementById('piece-palette').children)
-      .forEach(b=>{
-        b.style.border=( code===''? b.innerText==='Clear'
-          : b.innerText===getUnicode({type:code[1],color:code[0]})
-        )?'2px solid red':'';
-      });
-  }
-
-  // === Cell Click ===
-  function onCellClick(e){
-    const sq=e.currentTarget.id;
-    if(currentMode==='setup'||currentMode==='analysis'){
-      boardSetup[sq]=selectedPalettePiece;
-      drawSetupBoard();
-      return;
-    }
-    if(currentMode==='enginevengine') return;
-    if(!selectedSquare){
-      const pc=game.get(sq);
-      if(!pc||pc.color!==game.turn()) return;
-      if((currentMode==='stockfish'||currentMode==='losing')&&pc.color!==humanColor) return;
-      selectedSquare=sq; e.currentTarget.classList.add('selected');
-    } else {
-      if(selectedSquare===sq){
-        document.getElementById(sq).classList.remove('selected');
-        selectedSquare=null; return;
-      }
-      let promo='q', pc=game.get(selectedSquare);
-      if(pc&&pc.type==='p'&&((pc.color==='w'&&sq.endsWith('8'))||(pc.color==='b'&&sq.endsWith('1')))){
-        const c=prompt('Promote to (q,r,b,n):','q');
-        if(c&&'qrbn'.includes(c.toLowerCase())) promo=c.toLowerCase();
-      }
-      const mv=game.move({from:selectedSquare,to:sq,promotion:promo});
-      if(!mv) alert('Invalid move!');
-      selectedSquare=null; drawBoard();
-      if((currentMode==='stockfish'||currentMode==='losing')&&
-         game.turn()!==humanColor&&!game.game_over()){
-        if(currentMode==='stockfish'){
-          const d=parseInt(document.getElementById('difficultySelect').value,10);
-          if(d===-1){
-            const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
-            setTimeout(()=>chooseWorstMoveUsingStockfish(wd).then(m=>{
-              if(m) game.move(m); drawBoard();
-            }),250);
-          } else setTimeout(()=>askEngineForMove(game.fen()),250);
-        } else {
-          setTimeout(()=>chooseWorstMoveUsingStockfish().then(m=>{
-            if(m) game.move(m); drawBoard();
-          }),250);
-        }
-      }
-    }
-  }
-
-  // === Setup/Analyze ===
-  function initializeSetupBoard(){
-    boardSetup={};
-    for(let r=1;r<=8;r++)for(let f of files)boardSetup[f+r]='';
-    drawSetupBoard();
-  }
-
-  function finishSetup(){
-    const t=document.getElementById('turnSelect').value;
-    customFEN=makeFENFromSetup(t);
-    game.load(customFEN);
-    drawBoard();
-    alert('Position applied. Switch mode to play.');
-  }
-
-  function analyzePosition(){
-    const t=document.getElementById('turnSelect').value;
-    const fen=makeFENFromSetup(t);
-    document.getElementById('analysisResult').textContent='Analyzing…';
-    evaluateMoveWithStockfish(fen,16).then(cp=>{
-      document.getElementById('analysisResult').textContent=
-        cp>0?`+${cp} cp (White)`:
-        cp<0?`${cp} cp (Black)`:'0 cp (Equal)';
-    });
-  }
-
-  function makeFENFromSetup(turn){
-    const parts=[];
-    for(let r=8;r>=1;r--){
-      let row='',empty=0;
-      for(let f of files){
-        const c=boardSetup[f+r]||'';
-        if(!c) empty++;
-        else{
-          if(empty){row+=empty; empty=0;}
-          let L=c[1];
-          L=(c[0]==='w'?L.toUpperCase():L.toLowerCase());
-          row+=L;
-        }
-      }
-      if(empty) row+=empty;
-      parts.push(row);
-    }
-    return parts.join('/')+' '+turn+' - - 0 1';
-  }
-
-  // === Stockfish Integration ===
-  function initStockfish(){
-    if(typeof Worker==='undefined') return console.error('No Web Workers');
-    if(!stockfish){
-      stockfish=new Worker('stockfish.js');
-      stockfish.onmessage=e=>{
-        const m=e.data;
-        if(m.startsWith('bestmove')){
-          const mv=m.split(' ')[1];
-          if(mv!=='(none)'){
-            const mo=fixEnginePromotion(mv,game.fen());
-            game.move(mo); drawBoard();
-          }
-        }
-      };
-      stockfish.postMessage('uci');
-      setTimeout(updateSingleEngineDifficulty,500);
-    } else updateSingleEngineDifficulty();
-  }
-  function updateSingleEngineDifficulty(){
-    const d=document.getElementById('difficultySelect').value;
-    stockfish.postMessage('setoption name Skill Level value '+d);
-  }
-  function askEngineForMove(fen){
-    stockfish.postMessage('position fen '+fen);
-    stockfish.postMessage('go movetime 500');
-  }
-  function evaluateMoveWithStockfish(fen,depth=12){
-    return new Promise(res=>{
-      const w=new Worker('stockfish.js');
-      let score=null;
-      w.onmessage=e=>{
-        const L=e.data;
-        if(L.includes('score cp')){
-          const m=L.match(/score cp (-?\d+)/);
-          if(m) score=parseInt(m[1],10);
-        }
-        if(L.startsWith('bestmove')){
-          w.terminate(); res(score);
-        }
-      };
-      w.postMessage('uci');
-      setTimeout(()=>{
-        w.postMessage('position fen '+fen);
-        w.postMessage('go depth '+depth);
-      },200);
-    });
-  }
-  function chooseWorstMoveUsingStockfish(cd){
-    const moves=game.moves({verbose:true});
-    if(!moves.length) return Promise.resolve(null);
-    const depth=(cd!==undefined?cd:
-      parseInt(document.getElementById('losingDepthSelect').value,10)
-    );
-    const ps=moves.map(m=>{
-      const c=new Chess(game.fen()); c.move(m);
-      return evaluateMoveWithStockfish(c.fen(),depth)
-        .then(s=>({move:m,score:s}));
-    });
-    return Promise.all(ps).then(rs=>
-      rs.reduce((a,b)=>b.score>a.score?b:a,rs[0]).move
-    );
-  }
-  function getEnginePromotionMove(fen,from,to){
-    const p=['q','r','b','n'];
-    for(let pi of p){
-      const c=new Chess(fen);
-      if(c.move({from,to,promotion:pi})&&!c.in_draw())
-        return {from,to,promotion:pi};
-    }
-    return {from,to,promotion:'q'};
-  }
-  function fixEnginePromotion(bm,fen){
-    const f=bm.substr(0,2), t=bm.substr(2,2);
-    if(bm.length===5){
-      const pr=bm[4];
-      const c=new Chess(fen);
-      c.move({from:f,to:t,promotion:pr});
-      if(c.in_draw()) return getEnginePromotionMove(fen,f,t);
-      return {from:f,to:t,promotion:pr};
-    }
-    return {from:f,to:t};
-  }
-
-  // === Engine vs Engine ===
-  function initEngineVsEngine(){
-    if(stockfish){ stockfish.terminate(); stockfish=null; }
-    if(typeof Worker==='undefined') return console.error('No W');
-    // White
-    if(!stockfishWhite){
-      stockfishWhite=new Worker('stockfish.js');
-      stockfishWhite.onmessage=e=>{
-        const m=e.data;
-        if(m.startsWith('bestmove')&&game.turn()==='w'){
-          const mv=m.split(' ')[1];
-          if(mv!=='(none)'){
-            const mo=fixEnginePromotion(mv,game.fen());
-            game.move(mo); drawBoard();
-            setTimeout(autoPlayEngineVsEngine,250);
-          }
-        }
-      };
-      stockfishWhite.postMessage('uci');
-      setTimeout(()=>updateEngineDifficulty('w'),500);
-    } else updateEngineDifficulty('w');
-    // Black
-    if(!stockfishBlack){
-      stockfishBlack=new Worker('stockfish.js');
-      stockfishBlack.onmessage=e=>{
-        const m=e.data;
-        if(m.startsWith('bestmove')&&game.turn()==='b'){
-          const mv=m.split(' ')[1];
-          if(mv!=='(none)'){
-            const mo=fixEnginePromotion(mv,game.fen());
-            game.move(mo); drawBoard();
-            setTimeout(autoPlayEngineVsEngine,250);
-          }
-        }
-      };
-      stockfishBlack.postMessage('uci');
-      setTimeout(()=>updateEngineDifficulty('b'),500);
-    } else updateEngineDifficulty('b');
-    autoPlayEngineVsEngine();
-  }
-  function updateEngineDifficulty(side){
-    const val=document.getElementById(
-      side==='w'?'whiteDifficultySelect':'blackDifficultySelect'
-    ).value;
-    (side==='w'?stockfishWhite:stockfishBlack)
-      .postMessage('setoption name Skill Level value '+val);
-  }
-  function autoPlayEngineVsEngine(){
-    if(game.game_over()){ updateStatus(); return; }
-    const fen=game.fen(), turn=game.turn();
-    const diff=parseInt(document.getElementById(
-      turn==='w'?'whiteDifficultySelect':'blackDifficultySelect'
-    ).value,10);
-    if(diff===-1){
-      const wd=parseInt(document.getElementById('worstDepthInput').value,10)||10;
-      chooseWorstMoveUsingStockfish(wd).then(mv=>{
-        if(mv) game.move(mv);
-        drawBoard();
-        setTimeout(autoPlayEngineVsEngine,250);
-      });
-    } else {
-      const w = (turn==='w'?stockfishWhite:stockfishBlack);
-      w.postMessage('position fen '+fen);
-      w.postMessage('go movetime 500');
-    }
-  }
-
-  // === UI Logic ===
-  function updateWorstDepthControlVisibility(){
-    const m=currentMode, dd=document.getElementById('difficultySelect').value;
-    const wd=document.getElementById('whiteDifficultySelect').value;
-    const bd=document.getElementById('blackDifficultySelect').value;
-    const show=(m==='stockfish'&&dd==='-1')||
-               (m==='enginevengine'&&(wd==='-1'||bd==='-1'));
-    document.getElementById('worst-depth-control').style.display=show?'inline':'none';
-  }
-
-  function updateUI(){
-    const m=document.getElementById('modeSelect').value;
-    currentMode=m;
-    document.getElementById('single-difficulty').style.display=m==='stockfish'?'inline':'none';
-    document.getElementById('losing-depth').style.display=m==='losing'?'inline':'none';
-    document.getElementById('engine-levels').style.display=m==='enginevengine'?'inline':'none';
-    document.getElementById('setup-controls').style.display=(m==='setup'||m==='analysis')?'inline':'none';
-    document.getElementById('piece-palette').style.display=(m==='setup'||m==='analysis')?'block':'none';
-    document.getElementById('finishSetupButton').style.display=m==='setup'?'inline':'none';
-    document.getElementById('analyzePositionButton').style.display=m==='analysis'?'inline':'none';
-    document.getElementById('analysisResult').style.display=m==='analysis'?'block':'none';
-    document.getElementById('startEngineVsEngine').style.display=m==='enginevengine'?'inline-block':'none';
-    document.getElementById('evalBarContainer').style.display=
-      (document.getElementById('evalBarToggle').checked &&
-       ['twoplayer','stockfish','losing','enginevengine'].includes(m))
-      ? 'block':'none';
-    updateWorstDepthControlVisibility();
-
-    if(m==='setup'||m==='analysis'){
-      initializeSetupBoard(); createPiecePalette();
-      document.getElementById('setupLabel').textContent=
-        m==='setup'
-          ? 'Setup Position (select palette, then click squares):'
-          : 'Analyze Position (select palette, then click squares):';
-    }
-    if(m!=='setup'&&m!=='enginevengine'&&customFEN){
-      game.load(customFEN); drawBoard();
-    }
-  }
-
-  function resetGame(){
-    if(customFEN&&currentMode!=='setup') game.load(customFEN);
-    else game.reset();
-    selectedSquare=null; drawBoard();
-    if(currentMode==='enginevengine') setTimeout(autoPlayEngineVsEngine,250);
-  }
-
-  // === Event Listeners ===
-  document.getElementById('modeSelect').addEventListener('change',()=>{ updateUI(); resetGame(); });
-  document.getElementById('evalBarToggle').addEventListener('change',updateUI);
-  document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-  document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-  document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
-  document.getElementById('finishSetupButton').addEventListener('click',finishSetup);
-  document.getElementById('analyzePositionButton').addEventListener('click',analyzePosition);
-  document.getElementById('startEngineVsEngine').addEventListener('click',initEngineVsEngine);
-  document.getElementById('resetButton').addEventListener('click',resetGame);
-
-  // === Init ===
-  createBoard();
-  drawBoard();
-  updateUI();
   </script>
 </body>
 </html>
