@@ -13,12 +13,20 @@
 
     /* Board + eval bar container */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
-    #evalBarContainer {
-      width: 12px; height: 480px; margin-right: 10px;
-      border: 1px solid #333; display: none;
-    }
-    #evalBar { width:100%; height:100%; background:#eee; }
-
+    /* Ensure the bar grows from the center */
+    <!-- Add this inside your HTML, next to #evalBarContainer -->
+<div id="evalBarContainer">
+  <div id="evalBar"></div>
+  <div id="evalLabel" style="text-align:center; font-size:12px; margin-top:2px;"></div>
+</div>
+#evalBarContainer { position: relative; }
+#evalBar {
+  position: absolute;
+  bottom: 50%;
+  width: 100%;
+  background: linear-gradient(to top, black, black) no-repeat bottom;
+  background-size: 100% 0%;
+}
     /* Chessboard */
     #chessboard { display: inline-block; }
     table { border-collapse: collapse; }
@@ -250,14 +258,28 @@
   }
 
   // === Eval Bar ===
-  function updateEvalBar(){
-    const fen=game.fen();
-    evaluateMoveWithStockfish(fen,12).then(cp=>{
-      const p=Math.min(Math.max(-cp/1000,0),1)*100;
-      document.getElementById('evalBar').style.background=
-        `linear-gradient(to top, black ${p}%, white ${p}%)`;
-    });
-  }
+  function updateEvalBar(depth = 12) {
+  // Ask engine for cp score (modify evaluateMoveWithStockfish to return cp)
+  evaluateMoveWithStockfish(game.fen(), depth).then(cp => {
+    // Convert to pawn units and format to 2 decimals
+    let pawns = cp / 100;
+    const formatted = (pawns >= 0 ? '+' : '') + pawns.toFixed(2);
+    document.getElementById('evalLabel').textContent = formatted;
+
+    // Clamp to a max (e.g. ±10 pawns) for visual scaling
+    const maxPawns = 10; 
+    pawns = Math.max(-maxPawns, Math.min(maxPawns, pawns));
+
+    // Map from [-maxPawns, +maxPawns] → [0%,100%]
+    const percent = ((pawns + maxPawns) / (2 * maxPawns)) * 100;
+
+    // Set the bar fill height
+    const bar = document.getElementById('evalBar');
+    bar.style.backgroundSize = `100% ${percent}%`;
+  });
+}
+
+// Call updateEvalBar() after each move or analysis
 
   // === Piece Palette ===
   function createPiecePalette(){
