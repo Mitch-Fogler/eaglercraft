@@ -13,12 +13,7 @@
 
     /* Board + eval bar container */
     #board-container { display: flex; justify-content: center; align-items: flex-start; }
-    #evalBarContainer {
-      width: 12px; height: 480px; margin-right: 10px;
-      border: 1px solid #333; display: none;
-    }
-    #evalBar { width:100%; height:100%; background:#eee; }
-
+    
     /* Chessboard */
     #chessboard { display: inline-block; }
     table { border-collapse: collapse; }
@@ -68,10 +63,7 @@
       <option value="analysis">Analysis Mode</option>
     </select>
 
-    <label>
-      <input type="checkbox" id="evalBarToggle"/>
-      Show eval bar
-    </label>
+    
 
     <!-- Single‑player difficulty -->
     <span id="single-difficulty">
@@ -149,7 +141,7 @@
 
   <!-- Board + eval bar -->
   <div id="board-container">
-    <div id="evalBarContainer"><div id="evalBar"></div></div>
+    
     <div id="chessboard"></div>
   </div>
 
@@ -218,8 +210,7 @@
       }
     }
     updateStatus();
-    if(document.getElementById('evalBarToggle').checked) updateEvalBar();
-  }
+      }
 
   function drawSetupBoard(){
     for(let r=8;r>=1;r--){
@@ -554,10 +545,7 @@
     document.getElementById('analyzePositionButton').style.display=m==='analysis'?'inline':'none';
     document.getElementById('analysisResult').style.display=m==='analysis'?'block':'none';
     document.getElementById('startEngineVsEngine').style.display=m==='enginevengine'?'inline-block':'none';
-    document.getElementById('evalBarContainer').style.display=
-      (document.getElementById('evalBarToggle').checked &&
-       ['twoplayer','stockfish','losing','enginevengine'].includes(m))
-      ? 'block':'none';
+    
     updateWorstDepthControlVisibility();
 
     if(m==='setup'||m==='analysis'){
@@ -581,7 +569,6 @@
 
   // === Event Listeners ===
   document.getElementById('modeSelect').addEventListener('change',()=>{ updateUI(); resetGame(); });
-  document.getElementById('evalBarToggle').addEventListener('change',updateUI);
   document.getElementById('difficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
   document.getElementById('whiteDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
   document.getElementById('blackDifficultySelect').addEventListener('change',updateWorstDepthControlVisibility);
