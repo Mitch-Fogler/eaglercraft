@@ -567,6 +567,17 @@
     if(m!=='setup'&&m!=='enginevengine'&&customFEN){
       game.load(customFEN); drawBoard();
     }
+ const boardDiv = document.getElementById('board-container');
+  const frame = document.getElementById('analysisFrame');
+  if(m === 'analysis'){
+    boardDiv.style.display = 'none';
+    frame.style.display = 'block';
+  } else {
+    boardDiv.style.display = '';
+    frame.style.display = 'none';
+  }
+
+    
   }
 
   function resetGame(){
