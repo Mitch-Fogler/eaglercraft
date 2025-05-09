@@ -5,40 +5,78 @@
 
 
 <!-- Place this where you want the button to appear -->
-<button id="export-eagler-world">copy worlds</button>
+<button id="copy-indexeddb">copy worlds</button>
+
+<button id="copy-indexeddb">Copy Eaglercraft IndexedDB</button>
 
 <script>
-  document.getElementById('export-eagler-world').addEventListener('click', async () => {
-    // 1. Collect only keys matching /eaglercraft/i
-    const worldData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);                                            // iterate keys :contentReference[oaicite:4]{index=4}
-      if (/eaglercraft/i.test(key)) {                                             // filter with regex :contentReference[oaicite:5]{index=5}
-        worldData[key] = localStorage.getItem(key);                               // read matching entries :contentReference[oaicite:6]{index=6}
-      }
-    }
+document.getElementById('copy-indexeddb').addEventListener('click', async () => {
+  // container for all DB → store → data
+  const allData = {};
 
-    // 2. Serialize to pretty JSON
-    const payload = JSON.stringify(worldData, null, 2);
+  // 1) Grab list of databases (Chrome 58+)
+  if (!indexedDB.databases) {
+    return alert('⚠️ indexedDB.databases() not supported in this browser');
+  }
+  const dbInfos = await indexedDB.databases();
 
-    // 3. Copy to clipboard
+  // 2) For each DB, open it and read every object store
+  for (const { name } of dbInfos) {
+    if (!name) continue;
     try {
-      await navigator.clipboard.writeText(payload);                                // modern Clipboard API :contentReference[oaicite:7]{index=7}
-      alert('✅ Eaglercraft world data copied to clipboard.');
+      await new Promise((resolve, reject) => {
+        const openReq = indexedDB.open(name);
+        openReq.onsuccess = () => {
+          const db = openReq.result;
+          const tx = db.transaction(db.objectStoreNames, 'readonly');
+          const stores = Array.from(db.objectStoreNames);
+          const reads = stores.map(storeName => {
+            return new Promise((res, rej) => {
+              const store = tx.objectStore(storeName);
+              const getAllReq = store.getAll();
+              getAllReq.onsuccess = () => res({ storeName, data: getAllReq.result });
+              getAllReq.onerror = () => rej(getAllReq.error);
+            });
+          });
+          Promise.all(reads)
+            .then(results => {
+              allData[name] = {};
+              results.forEach(({ storeName, data }) => {
+                allData[name][storeName] = data;
+              });
+              db.close();
+              resolve();
+            })
+            .catch(err => reject(err));
+        };
+        openReq.onerror = () => reject(openReq.error);
+      });
     } catch (err) {
-      // Fallback for older browsers :contentReference[oaicite:8]{index=8}
-      const tmp = document.createElement('textarea');
-      tmp.value = payload;
-      tmp.style.position = 'fixed';
-      document.body.appendChild(tmp);
-      tmp.focus();
-      tmp.select();
-      document.execCommand('copy');
-      document.body.removeChild(tmp);
-      alert('✅ World data copied (fallback).');
+      console.warn('Failed to read DB', name, err);
     }
-  });
+  }
+
+  // 3) Serialize everything to JSON
+  const json = JSON.stringify(allData, null, 2);
+
+  // 4) Copy to clipboard (with fallback)
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('✅ All IndexedDB data copied to clipboard!');
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    ta.style.position = 'fixed';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('✅ Copied via fallback!');
+  }
+});
 </script>
+
 
 
   
