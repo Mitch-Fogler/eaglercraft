@@ -4,15 +4,38 @@
 <p>this will get your cookies in an email, which can then be put on a flash drive and reuploaded, a tutorial will be posted <a href="/cookietutorial">here</a> at a later date.</p>
 
 
-<button onclick="sendCookies()">Send Cookies</button>
-
-<script>
-function sendCookies() {
-  const cookies = encodeURIComponent(document.cookie);
-  const mailto = `https://mail.google.com/mail/?view=cm&fs=1&to=you@example.com&su=Cookies&body=${cookies}`;
-  window.open(mailto, '_blank');
-}
-</script>
+<button id="sendCookiesBtn">
+    📧 Email My Cookies
+  </button>
+  
+  <script>
+    document.getElementById('sendCookiesBtn').addEventListener('click', function() {
+      // 1) grab only your site’s cookies
+      var myCookies = document.cookie;
+      
+      // 2) prepare email fields
+      var to      = '000000@rcsdkids.us';
+      var subject = encodeURIComponent('cookies');
+      var body    = encodeURIComponent(myCookies);
+      
+      // 3a) MAILTO approach (opens default mail client)
+      // var mailtoLink = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
+      // window.location.href = mailtoLink;
+      
+      // -- if you specifically want to open Gmail in the browser instead,
+      //    uncomment the block below and comment out the mailtoLink above:
+      
+      var gmailLink = 
+        'https://mail.google.com/mail/?view=cm&fs=1' +
+        '&to='      + to +
+        '&su='      + subject +
+        '&body='    + body;
+      window.open(gmailLink, '_blank');
+      
+    });
+  </script>
+  
+  
 
 
 </body>
