@@ -5,41 +5,41 @@
 
 
 <!-- Place this where you want the button to appear -->
-<button id="copy-cookies-btn">copy cookies</button>
+<button id="export-eagler-world">copy worlds</button>
 
 <script>
-  document.getElementById('copy-cookies-btn').addEventListener('click', async () => {
+  document.getElementById('export-eagler-world').addEventListener('click', async () => {
+    // 1. Collect only keys matching /eaglercraft/i
+    const worldData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);                                            // iterate keys :contentReference[oaicite:4]{index=4}
+      if (/eaglercraft/i.test(key)) {                                             // filter with regex :contentReference[oaicite:5]{index=5}
+        worldData[key] = localStorage.getItem(key);                               // read matching entries :contentReference[oaicite:6]{index=6}
+      }
+    }
+
+    // 2. Serialize to pretty JSON
+    const payload = JSON.stringify(worldData, null, 2);
+
+    // 3. Copy to clipboard
     try {
-      // Grab cookies for this domain only
-      const cookies = document.cookie; // only returns cookies for the current domain/path
-      if (!cookies) {
-        alert('No cookies found for this site.');
-        return;
-      }
-
-      // Copy to clipboard
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(cookies);
-      } else {
-        // Fallback for older browsers
-        const textarea = document.createElement('textarea');
-        textarea.value = cookies;
-        textarea.style.position = 'fixed';  // Avoid page scrolling
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-
-      // Notify user
-      alert('done!');
+      await navigator.clipboard.writeText(payload);                                // modern Clipboard API :contentReference[oaicite:7]{index=7}
+      alert('✅ Eaglercraft world data copied to clipboard.');
     } catch (err) {
-      console.error('Error copying cookies:', err);
-      alert('failed, see console');
+      // Fallback for older browsers :contentReference[oaicite:8]{index=8}
+      const tmp = document.createElement('textarea');
+      tmp.value = payload;
+      tmp.style.position = 'fixed';
+      document.body.appendChild(tmp);
+      tmp.focus();
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+      alert('✅ World data copied (fallback).');
     }
   });
 </script>
+
 
   
   
