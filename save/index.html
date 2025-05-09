@@ -1,0 +1,22 @@
+<html>
+<body>
+<h1>Save!</h1>
+<p>this will get your cookies in an email, which can then be put on a flash drive and reuploaded, a tutorial will be posted <a href="/cookietutorial">here</a> at a later date.</p>
+
+
+<button onclick="sendCookies()">Send Cookies</button>
+
+<script>
+function sendCookies() {
+  const cookies = encodeURIComponent(document.cookie);
+  const mailto = `https://mail.google.com/mail/?view=cm&fs=1&to=you@example.com&su=Cookies&body=${cookies}`;
+  window.open(mailto, '_blank');
+}
+</script>
+
+
+</body>
+
+
+
+</html>
