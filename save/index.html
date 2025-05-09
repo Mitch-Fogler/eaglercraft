@@ -5,77 +5,66 @@
 
 
 <!-- Place this where you want the button to appear -->
-<button id="copy-indexeddb">copy worlds</button>
-
-<button id="copy-indexeddb">Copy Eaglercraft IndexedDB</button>
+<button id="copy-indexeddb">Copy Eaglercraft World</button>
 
 <script>
 document.getElementById('copy-indexeddb').addEventListener('click', async () => {
-  // container for all DB → store → data
   const allData = {};
 
-  // 1) Grab list of databases (Chrome 58+)
-  if (!indexedDB.databases) {
-    return alert('⚠️ indexedDB.databases() not supported in this browser');
+  // 1) List databases (Chrome 58+)
+  if (typeof indexedDB.databases !== 'function') {
+    return alert('⚠️ indexedDB.databases() not supported');
   }
   const dbInfos = await indexedDB.databases();
 
-  // 2) For each DB, open it and read every object store
+  // 2) Read every object store in each DB
   for (const { name } of dbInfos) {
     if (!name) continue;
-    try {
-      await new Promise((resolve, reject) => {
-        const openReq = indexedDB.open(name);
-        openReq.onsuccess = () => {
-          const db = openReq.result;
-          const tx = db.transaction(db.objectStoreNames, 'readonly');
-          const stores = Array.from(db.objectStoreNames);
-          const reads = stores.map(storeName => {
-            return new Promise((res, rej) => {
-              const store = tx.objectStore(storeName);
-              const getAllReq = store.getAll();
-              getAllReq.onsuccess = () => res({ storeName, data: getAllReq.result });
-              getAllReq.onerror = () => rej(getAllReq.error);
-            });
-          });
-          Promise.all(reads)
-            .then(results => {
-              allData[name] = {};
-              results.forEach(({ storeName, data }) => {
-                allData[name][storeName] = data;
-              });
-              db.close();
-              resolve();
-            })
-            .catch(err => reject(err));
-        };
-        openReq.onerror = () => reject(openReq.error);
-      });
-    } catch (err) {
-      console.warn('Failed to read DB', name, err);
-    }
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.open(name);
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(db.objectStoreNames, 'readonly');
+        const stores = Array.from(db.objectStoreNames);
+        Promise.all(stores.map(storeName =>
+          new Promise((res, rej) => {
+            const store = tx.objectStore(storeName);
+            const getAll = store.getAll();
+            getAll.onsuccess = () => res({ storeName, data: getAll.result });
+            getAll.onerror   = () => rej(getAll.error);
+          })
+        ))
+        .then(results => {
+          allData[name] = {};
+          for (const { storeName, data } of results) {
+            allData[name][storeName] = data;
+          }
+          db.close();
+          resolve();
+        })
+        .catch(err => reject(err));
+      };
+      req.onerror = () => reject(req.error);
+    });
   }
 
-  // 3) Serialize everything to JSON
+  // 3) Serialize to JSON & make a Blob
   const json = JSON.stringify(allData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
 
-  // 4) Copy to clipboard (with fallback)
+  // 4) Copy as a “file” into the clipboard
   try {
-    await navigator.clipboard.writeText(json);
-    alert('✅ All IndexedDB data copied to clipboard!');
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = json;
-    ta.style.position = 'fixed';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    alert('✅ Copied via fallback!');
+    // ClipboardItem API
+    const item = new ClipboardItem({ 'application/json': blob });
+    await navigator.clipboard.write([item]);
+    alert('✅ IndexedDB export copied to clipboard! Paste it as a file attachment.');
+  } catch (err) {
+    console.error('Clipboard write failed', err);
+    alert('Failed to copy file to clipboard.');
   }
 });
 </script>
+
 
 
 
