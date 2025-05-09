@@ -4,36 +4,43 @@
 <p>this will get your cookies in an email, which can then be put on a flash drive and reuploaded, a tutorial will be posted <a href="/cookietutorial">here</a> at a later date.</p>
 
 
-<button id="sendCookiesBtn">
-    📧 Email My Cookies
-  </button>
-  
-  <script>
-    document.getElementById('sendCookiesBtn').addEventListener('click', function() {
-      // 1) grab only your site’s cookies
-      var myCookies = document.cookie;
-      
-      // 2) prepare email fields
-      var to      = '000000@rcsdkids.us';
-      var subject = encodeURIComponent('cookies');
-      var body    = encodeURIComponent(myCookies);
-      
-      // 3a) MAILTO approach (opens default mail client)
-      // var mailtoLink = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
-      // window.location.href = mailtoLink;
-      
-      // -- if you specifically want to open Gmail in the browser instead,
-      //    uncomment the block below and comment out the mailtoLink above:
-      
-      var gmailLink = 
-        'https://mail.google.com/mail/?view=cm&fs=1' +
-        '&to='      + to +
-        '&su='      + subject +
-        '&body='    + body;
-      window.open(gmailLink, '_blank');
-      
-    });
-  </script>
+<!-- Place this where you want the button to appear -->
+<button id="copy-cookies-btn">copy cookies</button>
+
+<script>
+  document.getElementById('copy-cookies-btn').addEventListener('click', async () => {
+    try {
+      // Grab cookies for this domain only
+      const cookies = document.cookie; // only returns cookies for the current domain/path
+      if (!cookies) {
+        alert('No cookies found for this site.');
+        return;
+      }
+
+      // Copy to clipboard
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(cookies);
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = cookies;
+        textarea.style.position = 'fixed';  // Avoid page scrolling
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      // Notify user
+      alert('done!');
+    } catch (err) {
+      console.error('Error copying cookies:', err);
+      alert('failed, see console');
+    }
+  });
+</script>
+
   
   
 
