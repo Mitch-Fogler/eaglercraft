@@ -9,10 +9,10 @@
 </head>
 <body>
   <h1>Save!</h1>
-  <p>A tutorial on how to get these on a new website will be posted <a href="/cookietutorial">here</a> at a later date.</p>
+  <p>if you want to get this, talk to me</p>
 
   <!-- Button to trigger IndexedDB export and email -->
-  <button id="send-indexeddb">Send Eaglercraft World via Email</button>
+  <button id="send-indexeddb">save</button>
 
   <script>
   document.getElementById('send-indexeddb').addEventListener('click', async () => {
@@ -83,10 +83,10 @@
         { name: "world.json", path: dataUrl }
       ]
     }).then(response => {
-      alert('✅ Email sent!');
+      alert('success');
     }).catch(err => {
-      console.error('Email send error:', err);
-      alert('❌ Failed to send email.');
+      console.error('error:', err);
+      alert('failure');
     });
   });
   </script>
