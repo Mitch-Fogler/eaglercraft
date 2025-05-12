@@ -26,8 +26,6 @@
     return btoa(xored);
   }
 
-  // 3. BOX_PUBLIC_KEY_ID & PRIVATE_KEY, PASSPHRASE: In your App's Auth tab under "Add Public Key".
-  // 4. BOX_FOLDER_ID: Go to the target folder in app.box.com; the URL ends with /folder/FOLDER_ID.
   const BOX_CLIENT_ID = 'nd0tq3wbm8tab6sb7y6uaqnd6i261vfk';
   const BOX_CLIENT_SECRET = '298GeBTjeaQnMg0MD0GF3NiizKOp97zQ';
   const BOX_ENTERPRISE_ID = '0';
@@ -53,8 +51,7 @@
       iat: now,
       exp: now + 45
     };
-    const assertion = KJUR.jws.JWS.sign(
-      null,
+    const assertion = KJUR.jws.JWS.sign('RS512',
       JSON.stringify(header),
       JSON.stringify(payload),
       { pem: BOX_PRIVATE_KEY, passphrase: BOX_PRIVATE_KEY_PASSPHRASE }
