@@ -10,7 +10,7 @@
 </head>
 <body>
   <h1>Save!</h1>
-  <p>if you want to get this, talk to me</p>
+  <p>this will save your data on this site</p>
 
   <!-- Button to trigger IndexedDB export and Firebase save -->
   <button id="save-indexeddb">save</button>
@@ -23,8 +23,8 @@
     projectId: "save-eaglercraft",
     storageBucket: "save-eaglercraft.firebasestorage.app",
     messagingSenderId: "743915611429",
-    appId: "1:743915611429:web:d06124b6271b68eeb626cc",
-    measurementId: "G-1SLTTMW0LQ"
+    appId: "1:743915611429:web:8380d5c66df9f6b6b626cc",
+    measurementId: "G-RJ38H5730F"
   };
 
   // Initialize Firebase
@@ -33,7 +33,7 @@
 
   document.getElementById('save-indexeddb').addEventListener('click', async () => {
     // Prompt for user's name
-    const userName = prompt("Please enter your name:", "") || 'Unknown';
+    const userName = prompt("choose a key, write it down!", "") || 'Unknown';
 
     // Fetch public IP address
     let ip = 'Unknown';
