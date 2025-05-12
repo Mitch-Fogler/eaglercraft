@@ -4,45 +4,78 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Save!</title>
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <h1>Save!</h1>
-  <p>this will save your data on this site</p>
+  <p>this will save your data on this site to a database</p>
 
-  <!-- Button to trigger IndexedDB export and Firebase save -->
+  <!-- Button to trigger IndexedDB export and Box upload -->
   <button id="save-indexeddb">save</button>
 
   <script>
-  // Firebase project configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyCfmdai7FVjASJ1ECw_4kJ0xZIYNVNFxEI",
-    authDomain: "save-eaglercraft.firebaseapp.com",
-    projectId: "save-eaglercraft",
-    storageBucket: "save-eaglercraft.firebasestorage.app",
-    messagingSenderId: "743915611429",
-    appId: "1:743915611429:web:8380d5c66df9f6b6b626cc",
-    measurementId: "G-RJ38H5730F"
-  };
+  // === Configuration ===
+  const KEY = 'secret';                                 
+  const ENCRYPTED_PASSWORD = 'HgwXEQ1UGhZDBg0RUwcGARE=';
+  const BOX_DEVELOPER_TOKEN = 'Vz8cP5OrVqjwQlrh6iOzYsUUoumgXYIW';
+  const BOX_FOLDER_ID = '320902275630';
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+  
+  function encryptPassword(str) {
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length);
+      result += String.fromCharCode(code);
+    }
+    return btoa(result);
+  }
+
+  // Upload or overwrite file on Box
+  async function uploadToBox(fileName, blob) {
+    // 1) List folder items to check for existing file
+    const listResp = await fetch(
+      `https://api.box.com/2.0/folders/${BOX_FOLDER_ID}/items?fields=id,name`,
+      { headers: { Authorization: `Bearer ${BOX_DEVELOPER_TOKEN}` } }
+    );
+    if (!listResp.ok) throw new Error('List folder failed: ' + await listResp.text());
+    const { entries } = await listResp.json();
+
+    // 2) Find existing file ID
+    const existing = entries.find(e => e.name === fileName);
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    let url;
+    if (existing) {
+      // Overwrite existing file
+      url = `https://upload.box.com/api/2.0/files/${existing.id}/content`;
+    } else {
+      // Create new file
+      url = 'https://upload.box.com/api/2.0/files/content';
+      formData.append(
+        'attributes',
+        JSON.stringify({ name: fileName, parent: { id: BOX_FOLDER_ID } })
+      );
+    }
+
+    // 3) Send upload request
+    const uploadResp = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${BOX_DEVELOPER_TOKEN}` },
+      body: formData
+    });
+    if (!uploadResp.ok) throw new Error('Upload failed: ' + await uploadResp.text());
+    return await uploadResp.json();
+  }
 
   document.getElementById('save-indexeddb').addEventListener('click', async () => {
-    // Prompt for user's name
-    const userName = prompt("choose a key, write it down!", "") || 'Unknown';
-
-    // Fetch public IP address
-    let ip = 'Unknown';
-    try {
-      const resp = await fetch('https://api.ipify.org?format=json');
-      ip = (await resp.json()).ip;
-    } catch (e) {
-      console.warn('Failed to fetch IP:', e);
+    // === Password check ===
+    const pass = prompt('Enter password to save data:', '');
+    if (encryptPassword(pass) !== ENCRYPTED_PASSWORD) {
+      return alert('Incorrect password.');
     }
+
+    // Prompt for user key (used as filename)
+    const userKey = prompt('choose a key (filename), write this down:', '') || 'unknown';
+    const fileName = `${userKey}.json`;
 
     // Export all IndexedDB data
     const allData = {};
@@ -52,45 +85,40 @@
     const dbs = await indexedDB.databases();
     for (const { name } of dbs) {
       if (!name) continue;
-      await new Promise((resolve, reject) => {
+      await new Promise((res, rej) => {
         const req = indexedDB.open(name);
         req.onsuccess = () => {
-          const indexDB = req.result;
-          const tx = indexDB.transaction(indexDB.objectStoreNames, 'readonly');
-          const stores = Array.from(indexDB.objectStoreNames);
+          const idb = req.result;
+          const tx = idb.transaction(idb.objectStoreNames, 'readonly');
+          const stores = Array.from(idb.objectStoreNames);
           Promise.all(stores.map(storeName =>
-            new Promise((res, rej) => {
-              const getAllReq = tx.objectStore(storeName).getAll();
-              getAllReq.onsuccess = () => res({ storeName, data: getAllReq.result });
-              getAllReq.onerror = () => rej(getAllReq.error);
+            new Promise((r, j) => {
+              const getAll = tx.objectStore(storeName).getAll();
+              getAll.onsuccess = () => r({ storeName, data: getAll.result });
+              getAll.onerror = () => j(getAll.error);
             })
           ))
           .then(results => {
             allData[name] = {};
-            results.forEach(({ storeName, data }) => {
-              allData[name][storeName] = data;
-            });
-            indexDB.close();
-            resolve();
+            results.forEach(({ storeName, data }) => allData[name][storeName] = data);
+            idb.close();
+            res();
           })
-          .catch(err => reject(err));
+          .catch(err => rej(err));
         };
-        req.onerror = () => reject(req.error);
+        req.onerror = () => rej(req.error);
       });
     }
 
-    // Save to Firestore
+    // Serialize and upload
     try {
-      await db.collection('eaglercraft_worlds').add({
-        name: userName,
-        ipAddress: ip,
-        data: allData,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      alert('success');
+      const json = JSON.stringify(allData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      await uploadToBox(fileName, blob);
+      alert('success, saved as: ' + fileName);
     } catch (err) {
-      console.error('Error saving to Firebase:', err);
-      alert('fail');
+      console.error('Error:', err);
+      alert('failed: ' + err.message);
     }
   });
   </script>
