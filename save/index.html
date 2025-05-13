@@ -94,6 +94,7 @@
         if (encryptPassword(pass) !== ENCRYPTED_PASSWORD) {
           return alert('Incorrect password.');
         }
+console.log('» button clicked');
 
         const userKey = prompt('Please enter your key (filename):', '') || 'unknown';
         const fileName = `${userKey}.json`;
