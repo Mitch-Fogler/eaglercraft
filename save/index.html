@@ -58,9 +58,10 @@ MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
   'RS512',
   JSON.stringify(header),
   JSON.stringify(payload),
-  BOX_PRIVATE_KEY,                       // PEM string
-  BOX_PRIVATE_KEY_PASSPHRASE             // passphrase string
+  encrypted3DESpem,           // your re-encrypted PEM
+  privateKeyPassphrase        // the passphrase
 );
+
 
 
     const body = `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(assertion)}`;
