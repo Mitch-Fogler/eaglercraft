@@ -68,6 +68,13 @@ jQzvhcUdy4xOgkhPGA4oZw==
     let boxAccessToken = null;
     let boxTokenExpiry = 0;
 
+
+
+
+
+
+
+    
     async function getBoxAccessToken() {
       const now = KJUR.jws.IntDate.get('now');
       if (boxAccessToken && now < boxTokenExpiry - 60) return boxAccessToken;
@@ -90,12 +97,19 @@ jQzvhcUdy4xOgkhPGA4oZw==
         BOX_PRIVATE_KEY_OBJ
       );
 
-      const body = `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(assertion)}`;
-      const resp = await fetch('https://api.box.com/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
-      });
+const params = new URLSearchParams({
+  grant_type:    'urn:ietf:params:oauth:grant-type:jwt-bearer',
+  assertion:     assertion,
+  client_id:     BOX_CLIENT_ID,
+  client_secret: BOX_CLIENT_SECRET
+});
+
+const resp = await fetch('https://api.box.com/oauth2/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: params.toString()
+});
+
 
       if (!resp.ok) throw new Error('Token request failed: ' + await resp.text());
       const data = await resp.json();
