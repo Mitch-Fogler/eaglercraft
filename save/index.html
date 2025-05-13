@@ -21,9 +21,11 @@
     const BOX_FOLDER_ID       = '320902275630';
 
     // <-- UNENCRYPTED private key -->
-    const BOX_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-    -----YOUR PLAIN PKCS#8 OR PKCS#1 PRIVATE KEY HERE-----
-    -----END PRIVATE KEY-----`;
+    const BOX_PRIVATE_KEY = `-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
+...YOUR PEM PRIVATE KEY...
+-----END ENCRYPTED PRIVATE KEY-----
+`;
 
     // In-memory token cache
     let boxAccessToken = null;
