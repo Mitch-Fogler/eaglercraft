@@ -61,11 +61,9 @@ iKv59mnEr9SiAflHWLyv6slfeC+Ou/ULYZgy9mGDAcANQWV4ZPJoLyPAUChZFCzC
 jQzvhcUdy4xOgkhPGA4oZw==
 -----END PRIVATE KEY-----`;
     // Pre-decrypt private key
-    try {
+    
     const BOX_PRIVATE_KEY_OBJ = KEYUTIL.getKey(BOX_PRIVATE_KEY_PLAIN);
-    } catch (e) {
-      console.error(e)
-    }
+    
     let boxAccessToken = null;
     let boxTokenExpiry = 0;
 
