@@ -89,12 +89,14 @@
     }
 
     document.getElementById('save-indexeddb').addEventListener('click', async () => {
+      console.log('» button clicked');
+
       try {
         const pass = prompt('Enter password to save data:', '');
         if (encryptPassword(pass) !== ENCRYPTED_PASSWORD) {
           return alert('Incorrect password.');
         }
-console.log('» button clicked');
+
 
         const userKey = prompt('Please enter your key (filename):', '') || 'unknown';
         const fileName = `${userKey}.json`;
