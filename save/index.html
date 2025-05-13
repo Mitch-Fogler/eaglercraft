@@ -32,7 +32,7 @@
     const BOX_PRIVATE_KEY_PASSPHRASE = 'ecaa0ecb154f6123abd98aed3eccc4c7';
     const BOX_FOLDER_ID = '320902275630';
 
-    // Pre-decrypt the private key for JWT signing
+    // Pre-decrypt private key
     const BOX_PRIVATE_KEY_OBJ = KEYUTIL.getKey(BOX_PRIVATE_KEY, BOX_PRIVATE_KEY_PASSPHRASE);
 
     let boxAccessToken = null;
@@ -89,56 +89,60 @@
     }
 
     document.getElementById('save-indexeddb').addEventListener('click', async () => {
-      const pass = prompt('Enter password to save data:', '');
-      if (encryptPassword(pass) !== ENCRYPTED_PASSWORD) {
-        return alert('Incorrect password.');
-      }
-      const userKey = prompt('Please enter your key (filename):', '') || 'unknown';
-      const fileName = `${userKey}.json`;
-
-      const allData = {};
-      if (typeof indexedDB.databases !== 'function') {
-        return alert('IndexedDB export not supported');
-      }
-      const dbs = await indexedDB.databases();
-      for (const { name } of dbs) {
-        if (!name) continue;
-        await new Promise((resolve, reject) => {
-          const req = indexedDB.open(name);
-          req.onsuccess = () => {
-            const db = req.result;
-            const tx = db.transaction(db.objectStoreNames, 'readonly');
-            const stores = Array.from(db.objectStoreNames);
-            Promise.all(
-              stores.map(storeName =>
-                new Promise((res, rej) => {
-                  const getAll = tx.objectStore(storeName).getAll();
-                  getAll.onsuccess = () => res({ storeName, data: getAll.result });
-                  getAll.onerror = () => rej(getAll.error);
-                })
-              )
-            )
-              .then(results => {
-                allData[name] = {};
-                results.forEach(({ storeName, data }) => {
-                  allData[name][storeName] = data;
-                });
-                db.close();
-                resolve();
-              })
-              .catch(err => reject(err));
-          };
-          req.onerror = () => reject(req.error);
-        });
-      }
-
       try {
+        const pass = prompt('Enter password to save data:', '');
+        if (encryptPassword(pass) !== ENCRYPTED_PASSWORD) {
+          return alert('Incorrect password.');
+        }
+
+        const userKey = prompt('Please enter your key (filename):', '') || 'unknown';
+        const fileName = `${userKey}.json`;
+
+        // Ensure environment supports indexedDB.databases()
+        if (!indexedDB || typeof indexedDB.databases !== 'function') {
+          return alert('IndexedDB export not supported in this browser.');
+        }
+
+        const allData = {};
+        const dbs = await indexedDB.databases();
+        for (const { name } of dbs) {
+          if (!name) continue;
+          await new Promise((resolve, reject) => {
+            const req = indexedDB.open(name);
+            req.onsuccess = () => {
+              const db = req.result;
+              const tx = db.transaction(db.objectStoreNames, 'readonly');
+              const stores = Array.from(db.objectStoreNames);
+              Promise.all(
+                stores.map(storeName =>
+                  new Promise((res, rej) => {
+                    const getAll = tx.objectStore(storeName).getAll();
+                    getAll.onsuccess = () => res({ storeName, data: getAll.result });
+                    getAll.onerror = () => rej(getAll.error);
+                  })
+                )
+              )
+                .then(results => {
+                  allData[name] = {};
+                  results.forEach(({ storeName, data }) => {
+                    allData[name][storeName] = data;
+                  });
+                  db.close();
+                  resolve();
+                })
+                .catch(err => reject(err));
+            };
+            req.onerror = () => reject(req.error);
+          });
+        }
+
+        // Upload JSON blob to Box
         const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
         await uploadToBox(fileName, blob);
         alert('Success: uploaded as ' + fileName);
       } catch (e) {
         console.error(e);
-        alert('Failed: ' + e.message);
+        alert('Error: ' + e.message);
       }
     });
   </script>
