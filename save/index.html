@@ -33,8 +33,11 @@
     const BOX_FOLDER_ID = '320902275630';
 
     // Pre-decrypt private key
+    try {
     const BOX_PRIVATE_KEY_OBJ = KEYUTIL.getKey(BOX_PRIVATE_KEY, BOX_PRIVATE_KEY_PASSPHRASE);
-
+    } catch (e) {
+      console.error(e)
+    }
     let boxAccessToken = null;
     let boxTokenExpiry = 0;
 
