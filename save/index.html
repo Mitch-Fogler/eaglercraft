@@ -54,10 +54,14 @@ MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
       iat: now,
       exp: now + 45
     };
-    const assertion = KJUR.jws.JWS.sign('RS512', JSON.stringify(header), JSON.stringify(payload), {
-      pem: BOX_PRIVATE_KEY,
-      passphrase: BOX_PRIVATE_KEY_PASSPHRASE
-    });
+    const assertion = KJUR.jws.JWS.sign(
+  'RS512',
+  JSON.stringify(header),
+  JSON.stringify(payload),
+  BOX_PRIVATE_KEY,                       // PEM string
+  BOX_PRIVATE_KEY_PASSPHRASE             // passphrase string
+);
+
 
     const body = `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(assertion)}`;
     const resp = await fetch('https://api.box.com/oauth2/token', {
