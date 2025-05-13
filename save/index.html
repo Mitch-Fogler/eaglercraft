@@ -20,6 +20,8 @@
     const BOX_PUBLIC_KEY_ID        = '8gun8i6l';
     const BOX_FOLDER_ID            = '320902275630';
     const BOX_PRIVATE_KEY = `-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA\nMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBBfbrSEEVw5QtqacZ9L1ACGBIIE\n0GUSBriDWWc1IFfSGiEItWwjmZRpCMWy25K7UU8cLQWiJgwglSYZUpL9rQFv7sAx\nnPnFE1LwXI36B5djnf3azBtJLIIPOayggWUjQuWvi7pCNuIcGZqfRgqEcQ344mHv\nZ2zmPshOpK7RntqQlK0g8lQ4Yc23yoD18/tqORYZrwme+LlRTKaWRAZv6q46e5w2\nRI2qud6EPm9H0I+0PjlWnt1B3EsvGCKp90zIvMqrhPxb9pxHG+sxTq7Ok8mnt3ME\nyjtiHseAt0zv7+XADyEM/ap1yLv+z+NZGmwgInc4W8mtaFQWvm3QzW6AGEl0Z1ax\nozSxH8thqCWrGJ2dyNZUsTX/lHZ95ByQUqnt2vtO/zUmdgI9GY9qAkyCgufxo1v7\n3Nf1OT9iDqPMtaL46BW+QiIP/B00cUkxHKJHLl+lV0nFKu/onia2nKUbwrOpRhaL\nANm/jdqLxYAqK39HJG7FJ+N8iFWORZAXGUfWx3K59R5+DX0c82yfVCTiOiJD8KkE\njEuDRepo3EXhD75JVd1EvcMEPWG5gfc5SPD6p7XB1+26KocdUCB5hfDJNdDhjpyA\nGjLePbt+lBbTsi4naJ/OeHprKBNLRgbS4DgnA2RO7A60fFSzCtFOO0tmiBDBZINr\nFQcSfLVF8klyE7q5v6YGfllOdXnZConFIS1Ge/apdSNNtOnnyiq+Bjm+CGi8jWOP\n0inosNqeYbPVRFGLpp9Ryu5FEvfsB27hPnhFJs+TtS/+jqNuWYQ9PBcWz5z7vODz\nNQJptCwEE8/TxoQ86326fv7ppcX507sH+hJV8cvWR8kswcmLIfj/IFgyHKWgwJtA\nnOxnKBhmIUBWCFp7m64CDUnjz/wt5ZBobCXRO28MWw7EK2XWR3qpIyTBJXWyvp3Y\nIZP0BngGhBhbNFi53I/zqAhWUE2eYGyWGM+QtYUa22OavNmEt8VgpjUnhIk7wnBa\nYFObZFr4q2B0WhKjZpGYTslhjg0VJKKa825AXq+P/cqUAffNHVHo+sd0zI6rb6al\nF4POOpgyf0apQJoRqGXq/IkVIGyMBwAT+Tn5o5e6nOHyDLg8sVZ7Abzj2RFCes2M\nugy3kDzI758Vmfyh8ZCjkyUMSWakm9dur6ww1KL+mdIkufRhrrveEdKFnKike8Sc\nY8knqDtwTEnWhkZCQ0uCA9+T71yvW41M2dLmtInUkYrWn2+tdBDHIP79NG2Sq8R/\nPOmtRdefwfGjtVU1gIMVvOE811XeD/jqSmF3ZKh3teWYCtiJPCrBuxB2rP6ysx5p\nfjj+jdW6wXlcwZBpF7xev10IlqM4ZwwG4+oWDWhNf6wCobnNtlwLM+KkxVxQkIT8\nJNMh1y2G+p2d4jWx911Cp2H0Wcc9Y59328xppj9HaXmM9xWWHCO32+5nnFVR7VvR\nd31fp40lRSmlY8OPYU7mlOHvPCC2wv5+gDjF2NHoH9oW13htHEtNe6GHgzhWtbVi\nit/sjpBa6CpceivTTA05QMzkOhtCqvFfGuya75W8Odv/r3aA2L3YHr8tvUg+PxG3\nCqRCHkIRfYSwCPvcMsSG58S7Ps8kQ/iEHJaqSuCiNSWSuj6eD6KQB04WQwHdYUOX\nL7b5Dlv/znsyohFsJIMmcqVXWmJWknM5MLf5yyRIpMvY\n-----END ENCRYPTED PRIVATE KEY-----\n`;
+    const BOX_SUB_TYPE = 'user';
+    const BOX_SUBJECT_ID = '42271921754';     // your App User’s ID
 
     // The passphrase that decrypts the above PEM
     const BOX_PRIVATE_KEY_PASSPHRASE = 'ecaa0ecb154f6123abd98aed3eccc4c7';
@@ -39,14 +41,15 @@
         kid: BOX_PUBLIC_KEY_ID
       };
       const payload = {
-        iss: BOX_CLIENT_ID,
-        sub: BOX_ENTERPRISE_ID,
-        box_sub_type: 'enterprise',
-        aud: 'https://api.box.com/oauth2/token',
-        jti: KJUR.crypto.Util.getRandomHexOfNbytes(16),
-        iat: now,
-        exp: now + 45
-      };
+  iss: BOX_CLIENT_ID,
+  sub: BOX_SUBJECT_ID,
+  box_sub_type: BOX_SUB_TYPE,
+  aud: 'https://api.box.com/oauth2/token',
+  jti: KJUR.crypto.Util.getRandomHexOfNbytes(16),
+  iat: now,
+  exp: now + 45
+};
+
 
       // 2) Decrypt your encrypted PEM to raw PKCS#8 hex
       const plainHex = KEYUTIL.getPlainHexFromEncryptedPKCS8PEM(
