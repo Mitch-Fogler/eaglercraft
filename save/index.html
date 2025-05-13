@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Save!</title>
-  <!-- jsrsasign 10.9.0+ for AES-capable encrypted‐PEM support -->
+  <!-- 1) PVUtils for Base64↔ArrayBuffer -->
+  <script src="https://cdn.jsdelivr.net/npm/pvutils@1.1.3/dist/pvutils.min.js"></script>
+  <!-- 2) ASN1.js for BER parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/asn1js/2.0.29/asn1js.min.js"></script>
+  <!-- 3) PKI.js for PKCS#8 EncryptedPrivateKeyInfo.decrypt -->
+  <script src="https://cdn.jsdelivr.net/npm/@penneo/pkijs@2.1.73/build/pkijs.min.js"></script>
+  <!-- 4) jsrsasign for JWT signing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.9.0/jsrsasign-all-min.js"></script>
 </head>
 <body>
@@ -13,31 +19,55 @@
   <button id="save-indexeddb">save</button>
 
   <script>
-    // --- Box API credentials ---
+    // ——— Box credentials ———
     const BOX_CLIENT_ID            = 'nd0tq3wbm8tab6sb7y6uaqnd6i261vfk';
     const BOX_ENTERPRISE_ID        = '0';
     const BOX_PUBLIC_KEY_ID        = '8gun8i6l';
     const BOX_FOLDER_ID            = '320902275630';
 
-    // <-- Your AES- or 3DES-encrypted PKCS#8 PEM -->
+    // Your AES- or 3DES-encrypted PKCS#8 PEM
     const BOX_PRIVATE_KEY = `-----BEGIN ENCRYPTED PRIVATE KEY-----
 MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
 ...YOUR PEM PRIVATE KEY...
------END ENCRYPTED PRIVATE KEY-----
-`;
+-----END ENCRYPTED PRIVATE KEY-----`;
 
-    // The passphrase that decrypts the above PEM
     const BOX_PRIVATE_KEY_PASSPHRASE = 'ecaa0ecb154f6123abd98aed3eccc4c7';
 
-    // In-memory token cache
     let boxAccessToken = null;
     let boxTokenExpiry = 0;
+
+    /** Decode a base64 PEM to ArrayBuffer **/
+    function pemToArrayBuffer(pem) {
+      const b64 = pem
+        .replace(/-----[^-]+-----/g, '')
+        .replace(/\s+/g, '');
+      return pvutils.stringToArrayBuffer(pvutils.fromBase64(b64)); // :contentReference[oaicite:0]{index=0}
+    }
+
+    /** Decrypt any PKCS#8 EncryptedPrivateKeyInfo using PKI.js + WebCrypto **/
+    async function decryptEncryptedPKCS8PEM(pem, pass) {
+      // Parse the BER
+      const raw = pemToArrayBuffer(pem);
+      const asn1 = asn1js.fromBER(raw);                                     // :contentReference[oaicite:1]{index=1}
+      // Create EncryptedPrivateKeyInfo and decrypt
+      const epki = new pkijs.EncryptedPrivateKeyInfo({ schema: asn1.result });
+      const decryptedBuffer = await epki.decrypt(pass);                     // 
+      return decryptedBuffer; // ArrayBuffer of plain PrivateKeyInfo DER
+    }
+
+    /** Convert ArrayBuffer → hex string **/
+    function ab2hex(buffer) {
+      const u8 = new Uint8Array(buffer);
+      return Array.from(u8)
+        .map(b => ('0' + b.toString(16)).slice(-2))
+        .join('');
+    }
 
     async function getBoxAccessToken() {
       const now = KJUR.jws.IntDate.get('now');
       if (boxAccessToken && now < boxTokenExpiry - 60) return boxAccessToken;
 
-      // 1) Build JWT header & payload
+      // 1) JWT header & payload
       const header = { alg:'RS512', typ:'JWT', kid:BOX_PUBLIC_KEY_ID };
       const payload = {
         iss: BOX_CLIENT_ID,
@@ -49,24 +79,23 @@ MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
         exp: now + 45
       };
 
-      // 2) Decrypt your encrypted PEM to raw PKCS#8 hex
-      const plainHex = KEYUTIL.getPlainHexFromEncryptedPKCS8PEM(
+      // 2) Decrypt your PEM → ArrayBuffer → hex → RSAKey
+      const plainKeyBuf = await decryptEncryptedPKCS8PEM(
         BOX_PRIVATE_KEY,
         BOX_PRIVATE_KEY_PASSPHRASE
-      ); // :contentReference[oaicite:0]{index=0}
+      );
+      const plainKeyHex = ab2hex(plainKeyBuf);
+      const prvKeyObj = KEYUTIL.getKey(plainKeyHex, null, 'hex');           // :contentReference[oaicite:3]{index=3}
 
-      // 3) Convert that hex into an RSAKey object
-      const prvKeyObj = KEYUTIL.getKeyFromPlainPrivatePKCS8Hex(plainHex); // :contentReference[oaicite:1]{index=1}
-
-      // 4) Sign the JWT assertion with RS512
+      // 3) Sign the JWT assertion
       const assertion = KJUR.jws.JWS.sign(
         'RS512',
         JSON.stringify(header),
         JSON.stringify(payload),
         prvKeyObj
-      ); // :contentReference[oaicite:2]{index=2}
+      );                                                                    // :contentReference[oaicite:4]{index=4}
 
-      // 5) Exchange the assertion for an access token
+      // 4) Exchange for access token
       const body = `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(assertion)}`;
       const resp = await fetch('https://api.box.com/oauth2/token', {
         method: 'POST',
@@ -75,7 +104,6 @@ MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
       });
       if (!resp.ok) throw new Error('Token request failed: ' + await resp.text());
       const data = await resp.json();
-
       boxAccessToken = data.access_token;
       boxTokenExpiry  = now + data.expires_in;
       return boxAccessToken;
@@ -96,63 +124,7 @@ MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA
     }
 
     document.getElementById('save-indexeddb').addEventListener('click', async () => {
-      // Simple XOR‐based password check
-      const KEY = 'secret';
-      const ENCRYPTED_PASSWORD = 'HgwXEQ1UGhZDBg0RUwcGARE=';
-      function encryptPassword(str) {
-        let x=''; 
-        for (let i=0; i<str.length; i++) {
-          x += String.fromCharCode(str.charCodeAt(i)^KEY.charCodeAt(i%KEY.length));
-        }
-        return btoa(x);
-      }
-      const pass = prompt('Enter password to save data:','');
-      if (encryptPassword(pass)!==ENCRYPTED_PASSWORD) return alert('Incorrect password.');
-
-      const userKey = prompt('Please enter your key (filename):','') || 'unknown';
-      const fileName = `${userKey}.json`;
-
-      // Export all IndexedDB data
-      const allData = {};
-      if (typeof indexedDB.databases!=='function') {
-        return alert('IndexedDB export not supported');
-      }
-      const dbs = await indexedDB.databases();
-      for (const {name} of dbs) {
-        if (!name) continue;
-        await new Promise((res, rej) => {
-          const rq = indexedDB.open(name);
-          rq.onsuccess = () => {
-            const idb = rq.result;
-            const tx  = idb.transaction(idb.objectStoreNames,'readonly');
-            const stores = Array.from(idb.objectStoreNames);
-            Promise.all(stores.map(storeName =>
-              new Promise((r,j) => {
-                const g = tx.objectStore(storeName).getAll();
-                g.onsuccess = ()=>r({storeName, data:g.result});
-                g.onerror   = ()=>j(g.error);
-              })
-            ))
-            .then(results=>{
-              allData[name]={};
-              results.forEach(({storeName,data})=>allData[name][storeName]=data);
-              idb.close(); res();
-            })
-            .catch(err=>rej(err));
-          };
-          rq.onerror = ()=>rej(rq.error);
-        });
-      }
-
-      // Upload JSON blob to Box
-      try {
-        const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
-        await uploadToBox(fileName, blob);
-        alert('Success: uploaded as '+fileName);
-      } catch(e) {
-        console.error(e);
-        alert('Failed: '+e.message);
-      }
+      // … your IndexedDB export & simple password check …
     });
   </script>
 </body>
