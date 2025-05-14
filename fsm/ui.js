@@ -292,17 +292,18 @@ function setCheats() {
     ind.style.backgroundColor = on ? "green" : "red";
   }
 
-  // Render menu
+  // Render the cheats menu
   var container = document.getElementById("in_cheats");
-  if(!container) return;
+  if (!container) return;
   container.innerHTML = "";
 
   cheatsList.forEach(function(c) {
-    var row = document.createElement("div"); row.className = "cheat-row";
+    var row = document.createElement("div");
+    row.className = "cheat-row";
 
-    // Toggle indicator
+    // Toggle indicator box
     var indicator;
-    if(c.isToggle && typeof c.getState === "function") {
+    if (c.isToggle && typeof c.getState === "function") {
       indicator = document.createElement("span");
       indicator.className = "cheat-indicator";
       indicator.style.width = "12px";
@@ -314,33 +315,51 @@ function setCheats() {
       row.appendChild(indicator);
     }
 
-    // Label
-    var lbl = document.createElement("span"); lbl.className = "cheat-label"; lbl.textContent = c.name; row.appendChild(lbl);
+    // Cheat label
+    var lbl = document.createElement("span");
+    lbl.className = "cheat-label";
+    lbl.textContent = c.name;
+    row.appendChild(lbl);
 
-    // Inputs
-    if(c.inputs) c.inputs.forEach(function(spec) {
-      var inputEl;
-      if(spec.type === "select") {
-        inputEl = document.createElement("select"); spec.options.forEach(function(opt) { var o = document.createElement("option"); o.value = opt; o.textContent = opt; inputEl.appendChild(o); });
-      } else {
-        inputEl = document.createElement("input"); inputEl.type = "text"; inputEl.placeholder = spec.placeholder || "";
-      }
-      inputEl.className = "cheat-input";
-      row.appendChild(inputEl);
-    });
+    // Input fields if needed
+    if (c.inputs) {
+      c.inputs.forEach(function(spec) {
+        var inputEl;
+        if (spec.type === "select") {
+          inputEl = document.createElement("select");
+          spec.options.forEach(function(opt) {
+            var o = document.createElement("option");
+            o.value = opt;
+            o.textContent = opt;
+            inputEl.appendChild(o);
+          });
+        } else {
+          inputEl = document.createElement("input");
+          inputEl.type = "text";
+          inputEl.placeholder = spec.placeholder || "";
+        }
+        inputEl.className = "cheat-input";
+        row.appendChild(inputEl);
+      });
+    }
 
     // Run button
-    var btn = document.createElement("button"); btn.textContent = "Run"; btn.className = "cheat-btn";
+    var btn = document.createElement("button");
+    btn.textContent = "Run";
+    btn.className = "cheat-btn";
     btn.onclick = function() {
-      var args = Array.from(row.querySelectorAll(".cheat-input")).map(function(el) { return el.value !== "" ? el.value : el.placeholder; });
+      var args = Array.from(row.querySelectorAll(".cheat-input")).map(function(el) {
+        return el.value !== "" ? el.value : el.placeholder;
+      });
       c.action.apply(null, args);
-      if(indicator) updateIndicator(indicator, c);
+      if (indicator) updateIndicator(indicator, c);
     };
     row.appendChild(btn);
 
     container.appendChild(row);
   });
 }
+
 
 
 
