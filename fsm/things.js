@@ -1478,7 +1478,7 @@ function movePlayer(me) {
   // Jumping
   else if(me.keys.jump > 0 && (me.yvel <= 0 || map.underwater) ) {
     if(map.underwater) playerPaddles(me);
-    if(me.resting) {
+    if(me.resting || window._infiniteJump) {
       if(me.resting.xvel) me.xvel += me.resting.xvel;
       me.resting = false;
     }
