@@ -171,7 +171,6 @@ function setCheats() {
   var cheatsList = [
     {
       name: "Mushroom / Fire-Flower",
-      // no inputs → always pass game.player
       action: function() {
         game.playerShroom(game.player);
       }
@@ -211,7 +210,6 @@ function setCheats() {
         { placeholder: "100" }
       ],
       action: function(type, x, y) {
-        // spawn the chosen Thing function
         var ctor = window[type] || game[type];
         if (typeof ctor === "function") 
           game.addThing(ctor, Number(x), Number(y));
@@ -278,13 +276,13 @@ function setCheats() {
     }
   ];
 
-  // Rebuild window.cheats if other code depends on it
+  // Rebuild window.cheats lookup
   window.cheats = {};
   cheatsList.forEach(function(c) {
     window.cheats[c.name.replace(/[^A-Za-z0-9]/g, "_")] = c.name;
   });
 
-  // Render the menu
+  // Render the cheats menu
   var container = document.getElementById("in_cheats");
   if (!container) return;
   container.innerHTML = "";
@@ -299,11 +297,40 @@ function setCheats() {
     lbl.textContent = c.name;
     row.appendChild(lbl);
 
-    // Any inputs
-    var inputs = [];
+    // Inputs
     if (c.inputs) {
-      c.inputs.forEach(function(spec)
+      c.inputs.forEach(function(spec) {
+        var inputEl;
+        if (spec.type === "select") {
+          inputEl = document.createElement("select");
+          spec.options.forEach(function(opt) {
+            var o = document.createElement("option"); o.value = opt; o.textContent = opt;
+            inputEl.appendChild(o);
+          });
+        } else {
+          inputEl = document.createElement("input");
+          inputEl.type = "text";
+          inputEl.placeholder = spec.placeholder || "";
+        }
+        inputEl.className = "cheat-input";
+        row.appendChild(inputEl);
+      });
+    }
 
+    // Run button
+    var btn = document.createElement("button");
+    btn.textContent = "Run";
+    btn.className = "cheat-btn";
+    btn.onclick = function() {
+      var args = Array.from(row.querySelectorAll(".cheat-input"))
+                      .map(function(el) { return el.value; });
+      c.action.apply(null, args);
+    };
+    row.appendChild(btn);
+
+    container.appendChild(row);
+  });
+}
 
 
 
