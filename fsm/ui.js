@@ -169,46 +169,122 @@ function toggleGame(me) {
 
 function setCheats() {
   var cheatsList = [
-    { name: "Mushroom / Fire-Flower",
-  fn:   "game.playerShroom",
-  args: ["game.player"] },
-{ name: "Star Power",
-  fn:   "game.playerStar",
-  args: ["game.player"] },
-
-    { name: "Scroll Player (px)",       fn: "game.scrollPlayer",    inputs: [{ placeholder: "100" }] },
-    { name: "Float Through Level (s)",  fn: "game.scrollTime",      inputs: [{ placeholder: "5"   }] },
-    { name: "Fast-Forward (T)",         fn: "game.fastforward",     inputs: [{ placeholder: "1"   }] },
+    {
+      name: "Mushroom / Fire-Flower",
+      // no inputs → always pass game.player
+      action: function() {
+        game.playerShroom(game.player);
+      }
+    },
+    {
+      name: "Star Power",
+      action: function() {
+        game.playerStar(game.player);
+      }
+    },
+    {
+      name: "Scroll Player (px)",
+      inputs: [{ placeholder: "100" }],
+      action: function(px) {
+        game.scrollPlayer(Number(px));
+      }
+    },
+    {
+      name: "Float Through Level (s)",
+      inputs: [{ placeholder: "5" }],
+      action: function(sec) {
+        game.scrollTime(Number(sec));
+      }
+    },
+    {
+      name: "Fast-Forward (T)",
+      inputs: [{ placeholder: "1" }],
+      action: function(t) {
+        game.fastforward(Number(t));
+      }
+    },
     {
       name: "Add Thing",
-      fn: "game.addThing",
-      // dropdown + x + y
       inputs: [
-        { type: "select", options: ["Goomba", "Koopa", "PiranhaPlant", "Coin", "Mushroom", "FireFlower"] },
+        { type: "select", options: ["Goomba","Koopa","PiranhaPlant","Coin","Mushroom","FireFlower"] },
         { placeholder: "50" },
         { placeholder: "100" }
-      ]
+      ],
+      action: function(type, x, y) {
+        // spawn the chosen Thing function
+        var ctor = window[type] || game[type];
+        if (typeof ctor === "function") 
+          game.addThing(ctor, Number(x), Number(y));
+        else
+          console.error("Unknown Thing:", type);
+      }
     },
-    { name: "Kill Thing",               fn: "game.killNormal",      inputs: [{ placeholder: "window.characters[0]" }] },
-    { name: "Go to Map (A,B)",          fn: "game.setMap",          inputs: [{ placeholder: "1" }, { placeholder: "1" }] },
-    { name: "Random Map",               fn: "game.setMapRandom",    args: [] },
-    { name: "Shift to Location",        fn: "game.shiftToLocation", inputs: [{ placeholder: "2" }] },
-    { name: "Gain Life",                fn: "game.gainLife",        inputs: [{ placeholder: "1" }] },
-    { name: "Low Gravity",              fn: "(function(){ game.player.gravity = game.gravity/2; })", args: [] },
-    { name: "Unlimited Time",           fn: "(function(){ game.data.time.amount = Infinity; })", args: [] },
-    { name: "Lulz()",                   fn: "game.lulz",            args: [] }
+    {
+      name: "Kill Thing",
+      inputs: [{ placeholder: "window.characters[0]" }],
+      action: function(expr) {
+        try {
+          var thing = eval(expr);
+          game.killNormal(thing);
+        } catch(e) {
+          console.error("Bad kill target:", expr, e);
+        }
+      }
+    },
+    {
+      name: "Go to Map (A,B)",
+      inputs: [{ placeholder: "1" },{ placeholder: "1" }],
+      action: function(a,b) {
+        game.setMap(Number(a), Number(b));
+      }
+    },
+    {
+      name: "Random Map",
+      action: function() {
+        game.setMapRandom();
+      }
+    },
+    {
+      name: "Shift to Location",
+      inputs: [{ placeholder: "2" }],
+      action: function(n) {
+        game.shiftToLocation(Number(n));
+      }
+    },
+    {
+      name: "Gain Life",
+      inputs: [{ placeholder: "1" }],
+      action: function(n) {
+        game.gainLife(Number(n));
+      }
+    },
+    {
+      name: "Low Gravity",
+      action: function() {
+        game.player.gravity = game.gravity /= 2;
+      }
+    },
+    {
+      name: "Unlimited Time",
+      action: function() {
+        game.data.time.amount = Infinity;
+      }
+    },
+    {
+      name: "Lulz()",
+      action: function() {
+        game.lulz();
+      }
+    }
   ];
 
-  // Build window.cheats in case you need it elsewhere
+  // Rebuild window.cheats if other code depends on it
   window.cheats = {};
   cheatsList.forEach(function(c) {
-    var key = c.name.replace(/[^A-Za-z0-9]/g, "_");
-    var sig = c.args
-      ? c.fn + "(" + c.args.join(", ") + ")"
-      : c.fn + "()";
-    window.cheats[key] = sig;
+    window.cheats[c.name.replace(/[^A-Za-z0-9]/g, "_")] = c.name;
   });
 
+  // Render the menu
   var container = document.getElementById("in_cheats");
   if (!container) return;
   container.innerHTML = "";
@@ -219,65 +295,15 @@ function setCheats() {
 
     // Label
     var lbl = document.createElement("span");
-    lbl.textContent = c.name;
     lbl.className = "cheat-label";
+    lbl.textContent = c.name;
     row.appendChild(lbl);
 
-    // Inputs (if any)
+    // Any inputs
+    var inputs = [];
     if (c.inputs) {
-      c.inputs.forEach(function(spec) {
-        var inp;
-        if (spec.type === "select") {
-          inp = document.createElement("select");
-          spec.options.forEach(function(opt) {
-            var o = document.createElement("option");
-            o.value = opt;
-            o.textContent = opt;
-            inp.appendChild(o);
-          });
-        } else {
-          inp = document.createElement("input");
-          inp.type = "text";
-          inp.placeholder = spec.placeholder;
-        }
-        inp.className = "cheat-input";
-        row.appendChild(inp);
-      });
-    }
+      c.inputs.forEach(function(spec)
 
-    // Run button
-    var btn = document.createElement("button");
-    btn.textContent = "Run";
-    btn.className = "cheat-btn";
-btn.addEventListener("click", function() {
-  var code;
-  if (c.inputs) {
-    // unchanged: values from input placeholders or user entry
-    var values = Array.from(row.querySelectorAll(".cheat-input"))
-                      .map(el => el.value.trim() || el.placeholder);
-    code = c.fn + "(" + values.join(", ") + ")";
-  }
-  else if (c.args) {
-    // **NEW**: use the args array
-    code = c.fn + "(" + c.args.join(", ") + ")";
-  }
-  else {
-    code = c.fn + "()";
-  }
-
-  try {
-    eval(code);
-  } catch (e) {
-    console.error("Cheat execution failed:", code, e);
-  }
-});
-
-
-    row.appendChild(btn);
-
-    container.appendChild(row);
-  });
-}
 
 
 
