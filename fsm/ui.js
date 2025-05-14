@@ -169,12 +169,34 @@ function toggleGame(me) {
 // findme
 function setCheats() {
   var cheatsList = [
-    // Existing cheats...
+    // Existing one-off cheats
     { name: "Mushroom / Fire-Flower", action: function() { game.playerShroom(game.player); } },
     { name: "Star Power", action: function() { game.playerStar(game.player); } },
     { name: "Scroll Player (px)", inputs: [{ placeholder: "100" }], action: function(px) { game.scrollPlayer(Number(px)); } },
     { name: "Float Through Level (s)", inputs: [{ placeholder: "5" }], action: function(sec) { game.scrollTime(Number(sec)); } },
-    { name: "Fast-Forward (T)", inputs: [{ placeholder: "1" }], action: function(t) { game.fastforward(Number(t)); } },
+
+    // Toggle Fast-Forward
+    {
+      name: "Toggle Fast-Forward",
+      isToggle: true,
+      inputs: [{ placeholder: "2" }],
+      getState: function() { return !!window._fastFwdActive; },
+      action: function(t) {
+        if (!window._fastFwdActive) {
+          // Enable fast-forward at multiplier t
+          game.fastforward(Number(t));
+          window._fastFwdActive = true;
+          console.log("Fast-Forward enabled x" + t);
+        } else {
+          // Restore normal speed
+          game.fastforward(1);
+          window._fastFwdActive = false;
+          console.log("Fast-Forward disabled");
+        }
+      }
+    },
+
+    // Add Thing and Kill Thing
     { name: "Add Thing", inputs: [ { type: "select", options: ["Goomba","Koopa","PiranhaPlant","Coin","Mushroom","FireFlower"] },{ placeholder: "50" },{ placeholder: "100" } ], action: function(type, x, y) {
         var ctor = window[type] || game[type]; if(typeof ctor === "function") game.addThing(ctor, Number(x), Number(y)); else console.error("Unknown Thing:", type);
       }
@@ -183,23 +205,40 @@ function setCheats() {
         try { var thing = eval(expr); game.killNormal(thing); } catch(e) { console.error("Bad kill target:", expr, e); }
       }
     },
+
+    // Go/Random/Shift Map, Gain Life
     { name: "Go to Map (A,B)", inputs: [{ placeholder: "1" },{ placeholder: "1" }], action: function(a,b) { game.setMap(Number(a), Number(b)); } },
     { name: "Random Map", action: function() { game.setMapRandom(); } },
     { name: "Shift to Location", inputs: [{ placeholder: "2" }], action: function(n) { game.shiftToLocation(Number(n)); } },
     { name: "Gain Life", inputs: [{ placeholder: "1" }], action: function(n) { game.gainLife(Number(n)); } },
-    { name: "Low Gravity", action: function() {
-        game.gravity /= 2; game.player.gravity = game.gravity; console.log("Gravity halved to", game.gravity);
+
+    // Toggle Low Gravity
+    {
+      name: "Toggle Low Gravity",
+      isToggle: true,
+      getState: function() { return !!window._lowGravActive; },
+      action: function() {
+        if (!window._lowGravActive) {
+          window._origGravity = game.gravity;
+          game.gravity = game.gravity / 2;
+          game.player.gravity = game.gravity;
+          window._lowGravActive = true;
+          console.log("Low Gravity enabled (" + game.gravity + ")");
+        } else {
+          game.gravity = window._origGravity;
+          game.player.gravity = game.gravity;
+          delete window._origGravity;
+          window._lowGravActive = false;
+          console.log("Low Gravity disabled");
+        }
       }
     },
+
+    // Other cheats
     { name: "Unlimited Time", action: function() { game.data.time.amount = Infinity; } },
     { name: "Lulz()", action: function() { game.lulz(); } },
-
-    // Toggleable cheats with indicators
-    { name: "Toggle Infinite Jump",
-      isToggle: true,
-      getState: function() { return !!window._origJump; },
-      action: function() {
-        if(!window._origJump) {
+    { name: "Infinite Jump", action: function() {
+        if (!window._origJump) {
           window._origJump = game.player.jump.bind(game.player);
           game.player.jump = function() { window._origJump(); game.player.onGround = true; };
           console.log("Infinite Jump enabled");
@@ -208,20 +247,17 @@ function setCheats() {
           delete window._origJump;
           console.log("Infinite Jump disabled");
         }
-      }
-    },
-    { name: "Invert Gravity",
+      },
       isToggle: true,
-      getState: function() { return !!window._gravityInverted; },
-      action: function() {
+      getState: function() { return !!window._origJump; }
+    },
+    { name: "Invert Gravity", isToggle: true, getState: function() { return !!window._gravityInverted; }, action: function() {
         window._gravityInverted = !window._gravityInverted;
         game.gravity = window._gravityInverted ? -Math.abs(game.gravity) : Math.abs(game.gravity);
         game.player.gravity = game.gravity;
         console.log("Gravity", window._gravityInverted ? "inverted" : "restored", "to", game.gravity);
       }
     },
-
-    // One‑off cool cheats
     { name: "Fill Coins", action: function() { game.data.coins = 999; console.log("Coins set to 999"); } },
     { name: "Kill All", action: function() {
         window.characters.slice().forEach(function(c) {
@@ -237,7 +273,7 @@ function setCheats() {
     window.cheats[c.name.replace(/[^A-Za-z0-9]/g, "_")] = c.name;
   });
 
-  // Helper to update a toggle indicator
+  // Helper to update toggle indicators
   function updateIndicator(ind, cheat) {
     var on = cheat.getState && cheat.getState();
     ind.style.backgroundColor = on ? "green" : "red";
@@ -251,7 +287,7 @@ function setCheats() {
   cheatsList.forEach(function(c) {
     var row = document.createElement("div"); row.className = "cheat-row";
 
-    // Indicator box for toggles
+    // Toggle indicator
     var indicator;
     if(c.isToggle && typeof c.getState === "function") {
       indicator = document.createElement("span");
@@ -266,38 +302,24 @@ function setCheats() {
     }
 
     // Label
-    var lbl = document.createElement("span");
-    lbl.className = "cheat-label";
-    lbl.textContent = c.name;
-    row.appendChild(lbl);
+    var lbl = document.createElement("span"); lbl.className = "cheat-label"; lbl.textContent = c.name; row.appendChild(lbl);
 
     // Inputs
-    if(c.inputs) {
-      c.inputs.forEach(function(spec) {
-        var inputEl;
-        if(spec.type === "select") {
-          inputEl = document.createElement("select");
-          spec.options.forEach(function(opt) {
-            var o = document.createElement("option"); o.value = opt; o.textContent = opt; inputEl.appendChild(o);
-          });
-        } else {
-          inputEl = document.createElement("input");
-          inputEl.type = "text";
-          inputEl.placeholder = spec.placeholder || "";
-        }
-        inputEl.className = "cheat-input";
-        row.appendChild(inputEl);
-      });
-    }
+    if(c.inputs) c.inputs.forEach(function(spec) {
+      var inputEl;
+      if(spec.type === "select") {
+        inputEl = document.createElement("select"); spec.options.forEach(function(opt) { var o = document.createElement("option"); o.value = opt; o.textContent = opt; inputEl.appendChild(o); });
+      } else {
+        inputEl = document.createElement("input"); inputEl.type = "text"; inputEl.placeholder = spec.placeholder || "";
+      }
+      inputEl.className = "cheat-input";
+      row.appendChild(inputEl);
+    });
 
     // Run button
-    var btn = document.createElement("button");
-    btn.textContent = "Run";
-    btn.className = "cheat-btn";
+    var btn = document.createElement("button"); btn.textContent = "Run"; btn.className = "cheat-btn";
     btn.onclick = function() {
-      var args = Array.from(row.querySelectorAll(".cheat-input")).map(function(el) {
-        return el.value !== "" ? el.value : el.placeholder;
-      });
+      var args = Array.from(row.querySelectorAll(".cheat-input")).map(function(el) { return el.value !== "" ? el.value : el.placeholder; });
       c.action.apply(null, args);
       if(indicator) updateIndicator(indicator, c);
     };
@@ -306,6 +328,7 @@ function setCheats() {
     container.appendChild(row);
   });
 }
+
 
 
 
