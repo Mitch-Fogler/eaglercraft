@@ -206,8 +206,8 @@ function setCheats() {
       name: "Add Thing",
       inputs: [
         { type: "select", options: ["Goomba","Koopa","PiranhaPlant","Coin","Mushroom","FireFlower"] },
-        { placeholder: "50" },
-        { placeholder: "100" }
+        { placeholder: "100" },
+        { placeholder: "384" }
       ],
       action: function(type, x, y) {
         var ctor = window[type] || game[type];
