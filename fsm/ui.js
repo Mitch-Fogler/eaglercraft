@@ -251,16 +251,14 @@ function setCheats() {
     btn.className = "cheat-btn";
 btn.addEventListener("click", function() {
   var code;
-
   if (c.inputs) {
-    // (unchanged) build from user inputs…
-    var values = Array.from(row.querySelectorAll(".cheat-input")).map(el =>
-      el.value.trim() || el.placeholder
-    );
+    // unchanged: values from input placeholders or user entry
+    var values = Array.from(row.querySelectorAll(".cheat-input"))
+                      .map(el => el.value.trim() || el.placeholder);
     code = c.fn + "(" + values.join(", ") + ")";
   }
   else if (c.args) {
-    // <— new: use the args array
+    // **NEW**: use the args array
     code = c.fn + "(" + c.args.join(", ") + ")";
   }
   else {
@@ -273,6 +271,7 @@ btn.addEventListener("click", function() {
     console.error("Cheat execution failed:", code, e);
   }
 });
+
 
     row.appendChild(btn);
 
