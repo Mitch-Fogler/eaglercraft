@@ -13,13 +13,40 @@ body {
 .cheat-group h4 { margin: 0.3em 0; font-size: 1.1em; }
 .cheat-group ul { list-style: inside disc; margin: 0; padding: 0.5em; }
 .cheat-group li { margin: 0.2em 0; font-family: monospace; }
+/* make it scroll when too tall */
 #in_cheats {
-  max-height: 300px;         /* or whatever fits your UI */ 
-  overflow-y: auto;          /* vertical scrollbar appears as needed */:contentReference[oaicite:2]{index=2}
-  overflow-x: hidden;        /* prevent ugly horizontal scrollbars */:contentReference[oaicite:3]{index=3}
+  max-height: 50vh;
+  overflow-y: auto;
   padding: 0.5em;
   border: 1px solid #ccc;
 }
+
+/* each cheat on one line */
+.cheat-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+/* name takes up remaining space */
+.cheat-label {
+  flex: 1;
+  font-weight: bold;
+}
+
+/* small inputs in the middle */
+.cheat-input {
+  width: 60px;
+  margin: 0 6px;
+  padding: 2px 4px;
+}
+
+/* run button at the end */
+.cheat-btn {
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
 /* General Positioning */
 
 #header {
