@@ -168,30 +168,71 @@ function toggleGame(me) {
 }
 
 function setCheats() {
-  var i;
-  console.log("Hi, thanks for playing Full Screen Mario! I see you're using the console.");
-  console.log("There's not really any way to stop you from messing around so if you'd like to know the common cheats, enter \"displayCheats()\" here.");
-  console.log("If you'd like, go ahead and look around the source code. There are a few surprises you might have fun with... ;)");
-  console.log("http://www.github.com/DiogenesTheCynic/FullScreenMario");
-  window.cheats = {
-    Change_Map: "game.setMap([#,#] or #,#);",
-    Change_Map_Location: "game.shiftToLocation(#);",
-    Fast_Forward: "game.fastforward(amount; 1 by default);",
-    Life: "game.gainLife(# amount or Infinity)",
-    Low_Gravity: "game.player.gravity = game.gravity /= 2;",
-    Lulz: "game.lulz();",
-    Random_Map: "game.setMapRandom();",
-    Shroom: "game.playerShroom(game.player)",
-    Star_Power: "game.playerStar(game.player)",
-    Unlimited_Time: "game.data.time.amount = Infinity;",
-  }
-  cheatsize = 0;
-  for(var i in cheats)
-    cheatsize = Math.max(cheatsize, i.length);
+  // 1) Define every cheat you want to expose:
+  var cheatsList = [
+    // Game Powerups
+    { name: "Mushroom / Fire-Flower",  cmd: "game.playerShroom(game.player)" },
+    { name: "Star Power",               cmd: "game.playerStar(game.player)" },
+    { name: "Scroll Player (px)",       cmd: "game.scrollPlayer(X)" },
+    { name: "Float Through Level (s)",  cmd: "game.scrollTime(T)" },
+    { name: "Fast-Forward (T)",         cmd: "game.fastforward(T)" },
+
+    // Add & Kill Things
+    { name: "Add Thing",                cmd: "game.addThing(ThingFunction, xloc, yloc)" },
+    { name: "Add Custom Thing",         cmd: "game.addThing(new Thing(ThingFunction, a1, a2), xloc, yloc)" },
+    { name: "Kill Thing",               cmd: "game.killNormal(MyThing)" },
+
+    // Map Shifting
+    { name: "Go to Map (A-B)",          cmd: "game.setMap(A, B)   or   game.setMap([A, B])" },
+    { name: "Random Map",               cmd: "game.setMapRandom()" },
+    { name: "Random Overworld",         cmd: "game.setMapRandom(\"Overworld\")" },
+    { name: "Shift to Location N",      cmd: "game.shiftToLocation(N)" },
+
+    // Misc / Developer Aliases
+    { name: "Gain Life(s)",             cmd: "game.gainLife(# or Infinity)" },
+    { name: "Low Gravity",              cmd: "game.player.gravity = game.gravity /= 2" },
+    { name: "Unlimited Time",           cmd: "game.data.time.amount = Infinity" },
+    { name: "Lulz()",                   cmd: "game.lulz()" }
+  ];
+
+  // 2) Store the same data in window.cheats (if you still need it elsewhere):
+  window.cheats = {};
+  cheatsList.forEach(function(c) {
+    // use the name as a camelCase key (e.g. "StarPower")
+    var key = c.name.replace(/[ \/()"]/g, "_").replace(/__+/g, "_");
+    window.cheats[key] = c.cmd;
+  });
+
+  // 3) Render them into your #in_cheats container:
+  var container = document.getElementById("in_cheats");
+  if (!container) return;
+
+  // Build a grouped list by category titles:
+  var html = "";
+  var groups = {
+    "Game Powerups":        cheatsList.slice(0,5),
+    "Add & Kill Things":    cheatsList.slice(5,8),
+    "Map Shifting":         cheatsList.slice(8,12),
+    "Misc / Dev Aliases":   cheatsList.slice(12)
+  };
+
+  Object.keys(groups).forEach(function(title) {
+    html += "<div class='cheat-group'>";
+    html +=   "<h4>" + title + "</h4>";
+    html +=   "<ul>";
+    groups[title].forEach(function(c) {
+      html += "<li><code>" + c.cmd + "</code> – " + c.name + "</li>";
+    });
+    html +=   "</ul>";
+    html += "</div>";
+  });
+
+  container.innerHTML = html;
 }
 
+
 function displayCheats() {
-  console.log("These are stored in the global 'cheats' object, by the way.");
+  
   for(i in cheats)
     printCheat(i, cheats[i]);
   return "Have fun!";
