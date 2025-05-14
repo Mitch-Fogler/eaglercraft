@@ -317,13 +317,15 @@ function setCheats() {
       });
     }
 
-    // Run button
+    // Run button with placeholder fallback
     var btn = document.createElement("button");
     btn.textContent = "Run";
     btn.className = "cheat-btn";
     btn.onclick = function() {
       var args = Array.from(row.querySelectorAll(".cheat-input"))
-                      .map(function(el) { return el.value; });
+                      .map(function(el) {
+                        return el.value !== "" ? el.value : el.placeholder;
+                      });
       c.action.apply(null, args);
     };
     row.appendChild(btn);
