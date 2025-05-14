@@ -82,8 +82,8 @@ jQzvhcUdy4xOgkhPGA4oZw==
       const header = { alg: 'RS512', typ: 'JWT', kid: BOX_PUBLIC_KEY_ID };
       const payload = {
         iss: BOX_CLIENT_ID,
-        sub: BOX_ENTERPRISE_ID,
-        box_sub_type: 'enterprise',
+        sub: '42271921754',
+        box_sub_type: 'user',
         aud: 'https://api.box.com/oauth2/token',
         jti: KJUR.crypto.Util.getRandomHexOfNbytes(16),
         iat: now,
