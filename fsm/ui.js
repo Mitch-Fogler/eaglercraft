@@ -169,7 +169,6 @@ function toggleGame(me) {
 // findme
 function setCheats() {
   var cheatsList = [
-    // Existing one-off cheats
     { name: "Mushroom / Fire-Flower", action: function() { game.playerShroom(game.player); } },
     { name: "Star Power", action: function() { game.playerStar(game.player); } },
     { name: "Scroll Player (px)", inputs: [{ placeholder: "100" }], action: function(px) { game.scrollPlayer(Number(px)); } },
@@ -183,12 +182,10 @@ function setCheats() {
       getState: function() { return !!window._fastFwdActive; },
       action: function(t) {
         if (!window._fastFwdActive) {
-          // Enable fast-forward at multiplier t
           game.fastforward(Number(t));
           window._fastFwdActive = true;
           console.log("Fast-Forward enabled x" + t);
         } else {
-          // Restore normal speed
           game.fastforward(1);
           window._fastFwdActive = false;
           console.log("Fast-Forward disabled");
@@ -196,23 +193,30 @@ function setCheats() {
       }
     },
 
-    // Add Thing and Kill Thing
+    // Add and Kill single Thing
     { name: "Add Thing", inputs: [ { type: "select", options: ["Goomba","Koopa","PiranhaPlant","Coin","Mushroom","FireFlower"] },{ placeholder: "50" },{ placeholder: "100" } ], action: function(type, x, y) {
-        var ctor = window[type] || game[type]; if(typeof ctor === "function") game.addThing(ctor, Number(x), Number(y)); else console.error("Unknown Thing:", type);
+        var ctor = window[type] || game[type];
+        if (typeof ctor === "function") game.addThing(ctor, Number(x), Number(y));
+        else console.error("Unknown Thing:", type);
       }
     },
     { name: "Kill Thing", inputs: [{ placeholder: "window.characters[0]" }], action: function(expr) {
-        try { var thing = eval(expr); game.killNormal(thing); } catch(e) { console.error("Bad kill target:", expr, e); }
+        try {
+          var thing = eval(expr);
+          game.killNormal(thing);
+        } catch(e) {
+          console.error("Bad kill target:", expr, e);
+        }
       }
     },
 
-    // Go/Random/Shift Map, Gain Life
-    { name: "Go to Map (A,B)", inputs: [{ placeholder: "1" },{ placeholder: "1" }], action: function(a,b) { game.setMap(Number(a), Number(b)); } },
+    // Map controls and lives
+    { name: "Go to Map (A,B)", inputs: [{ placeholder: "1" },{ placeholder: "1" }], action: function(a, b) { game.setMap(Number(a), Number(b)); } },
     { name: "Random Map", action: function() { game.setMapRandom(); } },
     { name: "Shift to Location", inputs: [{ placeholder: "2" }], action: function(n) { game.shiftToLocation(Number(n)); } },
     { name: "Gain Life", inputs: [{ placeholder: "1" }], action: function(n) { game.gainLife(Number(n)); } },
 
-    // Toggle Low Gravity
+    // Gravity toggles
     {
       name: "Toggle Low Gravity",
       isToggle: true,
@@ -233,49 +237,54 @@ function setCheats() {
         }
       }
     },
-
-    // Other cheats
-    { name: "Unlimited Time", action: function() { game.data.time.amount = Infinity; } },
-    { name: "Infinite Jump", isToggle: true,
-      getState: function() { return !!window._infJumpInterval; },
+    {
+      name: "Invert Gravity",
+      isToggle: true,
+      getState: function() { return !!window._gravityInverted; },
       action: function() {
-        if (!window._infJumpInterval) {
-          window._infJumpInterval = setInterval(function() {
-            if (game && game.player) {
-              game.player.onGround = true;
-            }
-          }, 50);
+        window._gravityInverted = !window._gravityInverted;
+        game.gravity = window._gravityInverted ? -Math.abs(game.gravity) : Math.abs(game.gravity);
+        game.player.gravity = game.gravity;
+        console.log("Gravity", window._gravityInverted ? "inverted" : "restored", "to", game.gravity);
+      }
+    },
+
+    // Time and jump cheats
+    { name: "Unlimited Time", action: function() { game.data.time.amount = Infinity; } },
+    {
+      name: "Infinite Jump",
+      isToggle: true,
+      getState: function() { return !!window._origJump; },
+      action: function() {
+        if (!window._origJump) {
+          window._origJump = game.player.jump.bind(game.player);
+          game.player.jump = function() { window._origJump(); window.player && (game.player.onGround = true); };
           console.log("Infinite Jump enabled");
         } else {
-          clearInterval(window._infJumpInterval);
-          delete window._infJumpInterval;
+          game.player.jump = window._origJump;
+          delete window._origJump;
           console.log("Infinite Jump disabled");
         }
       }
     },
-    { name: "Fill Coins", action: function() {
-        if (!game || !game.player) return;
-        var ctor = window.Coin || game.Coin;
-        var px = game.player.xloc, py = game.player.yloc;
-        for (var i = 0; i < 50; i++) {
-          // spawn coins around player
-          var offsetX = (Math.random() - 0.5) * 100;
-          var offsetY = (Math.random() - 0.5) * 30;
-          if (typeof ctor === "function") game.addThing(ctor, px + offsetX, py + offsetY);
+
+    // Invincibility
+    {
+      name: "Toggle Invincibility",
+      isToggle: true,
+      getState: function() { return !!window._invincible; },
+      action: function() {
+        if (!window._invincible) {
+          window._origHurt = game.player.hurt.bind(game.player);
+          game.player.hurt = function() {};
+          window._invincible = true;
+          console.log("Invincibility enabled");
+        } else {
+          game.player.hurt = window._origHurt;
+          delete window._origHurt;
+          window._invincible = false;
+          console.log("Invincibility disabled");
         }
-        console.log("Spawned 50 coins around player");
-      }
-    },
-    { name: "Kill All", action: function() {
-        ["characters","solids","scenery"].forEach(function(group) {
-          var arr = window[group];
-          if (arr && Array.isArray(arr)) {
-            arr.slice().forEach(function(c) {
-              game.killNormal(c);
-            });
-          }
-        });
-        console.log("All non-player things killed");
       }
     }
   ];
@@ -286,13 +295,13 @@ function setCheats() {
     window.cheats[c.name.replace(/[^A-Za-z0-9]/g, "_")] = c.name;
   });
 
-  // Helper to update toggle indicators
+  // Indicator helper
   function updateIndicator(ind, cheat) {
     var on = cheat.getState && cheat.getState();
     ind.style.backgroundColor = on ? "green" : "red";
   }
 
-  // Render the cheats menu
+  // Render
   var container = document.getElementById("in_cheats");
   if (!container) return;
   container.innerHTML = "";
@@ -301,37 +310,29 @@ function setCheats() {
     var row = document.createElement("div");
     row.className = "cheat-row";
 
-    // Toggle indicator box
     var indicator;
     if (c.isToggle && typeof c.getState === "function") {
       indicator = document.createElement("span");
       indicator.className = "cheat-indicator";
-      indicator.style.width = "12px";
-      indicator.style.height = "12px";
-      indicator.style.display = "inline-block";
-      indicator.style.margin = "0 8px 0 4px";
-      indicator.style.border = "1px solid #fff";
+      indicator.style.cssText = "width:12px;height:12px;display:inline-block;margin:0 8px 0 4px;border:1px solid #fff;";
       updateIndicator(indicator, c);
       row.appendChild(indicator);
     }
 
-    // Cheat label
+    // Label
     var lbl = document.createElement("span");
     lbl.className = "cheat-label";
     lbl.textContent = c.name;
     row.appendChild(lbl);
 
-    // Input fields if needed
+    // Inputs
     if (c.inputs) {
       c.inputs.forEach(function(spec) {
         var inputEl;
         if (spec.type === "select") {
           inputEl = document.createElement("select");
           spec.options.forEach(function(opt) {
-            var o = document.createElement("option");
-            o.value = opt;
-            o.textContent = opt;
-            inputEl.appendChild(o);
+            var o = document.createElement("option"); o.value = opt; o.textContent = opt; inputEl.appendChild(o);
           });
         } else {
           inputEl = document.createElement("input");
@@ -345,8 +346,8 @@ function setCheats() {
 
     // Run button
     var btn = document.createElement("button");
-    btn.textContent = "Run";
     btn.className = "cheat-btn";
+    btn.textContent = "Run";
     btn.onclick = function() {
       var args = Array.from(row.querySelectorAll(".cheat-input")).map(function(el) {
         return el.value !== "" ? el.value : el.placeholder;
