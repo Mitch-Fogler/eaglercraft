@@ -13,7 +13,13 @@ body {
 .cheat-group h4 { margin: 0.3em 0; font-size: 1.1em; }
 .cheat-group ul { list-style: inside disc; margin: 0; padding: 0.5em; }
 .cheat-group li { margin: 0.2em 0; font-family: monospace; }
-
+#in_cheats {
+  max-height: 300px;         /* or whatever fits your UI */ 
+  overflow-y: auto;          /* vertical scrollbar appears as needed */:contentReference[oaicite:2]{index=2}
+  overflow-x: hidden;        /* prevent ugly horizontal scrollbars */:contentReference[oaicite:3]{index=3}
+  padding: 0.5em;
+  border: 1px solid #ccc;
+}
 /* General Positioning */
 
 #header {
