@@ -168,67 +168,57 @@ function toggleGame(me) {
 }
 
 function setCheats() {
-  // 1) Define every cheat you want to expose:
+  // 1) Define your cheats with human names + exec strings
   var cheatsList = [
-    // Game Powerups
-    { name: "Mushroom / Fire-Flower",  cmd: "game.playerShroom(game.player)" },
-    { name: "Star Power",               cmd: "game.playerStar(game.player)" },
-    { name: "Scroll Player (px)",       cmd: "game.scrollPlayer(X)" },
-    { name: "Float Through Level (s)",  cmd: "game.scrollTime(T)" },
-    { name: "Fast-Forward (T)",         cmd: "game.fastforward(T)" },
-
-    // Add & Kill Things
-    { name: "Add Thing",                cmd: "game.addThing(ThingFunction, xloc, yloc)" },
-    { name: "Add Custom Thing",         cmd: "game.addThing(new Thing(ThingFunction, a1, a2), xloc, yloc)" },
-    { name: "Kill Thing",               cmd: "game.killNormal(MyThing)" },
-
-    // Map Shifting
-    { name: "Go to Map (A-B)",          cmd: "game.setMap(A, B)   or   game.setMap([A, B])" },
-    { name: "Random Map",               cmd: "game.setMapRandom()" },
-    { name: "Random Overworld",         cmd: "game.setMapRandom(\"Overworld\")" },
-    { name: "Shift to Location N",      cmd: "game.shiftToLocation(N)" },
-
-    // Misc / Developer Aliases
-    { name: "Gain Life(s)",             cmd: "game.gainLife(# or Infinity)" },
-    { name: "Low Gravity",              cmd: "game.player.gravity = game.gravity /= 2" },
-    { name: "Unlimited Time",           cmd: "game.data.time.amount = Infinity" },
-    { name: "Lulz()",                   cmd: "game.lulz()" }
+    { name: "Mushroom / Fire-Flower", cmd: "game.playerShroom(game.player)" },
+    { name: "Star Power",              cmd: "game.playerStar(game.player)" },
+    { name: "Scroll Player (px)",      cmd: "game.scrollPlayer(100)" },
+    { name: "Float (s)",               cmd: "game.scrollTime(5)" },
+    { name: "Fast-Forward (T)",        cmd: "game.fastforward(1)" },
+    { name: "Add Thing",               cmd: "game.addThing(Goomba, 50, 100)" },
+    { name: "Kill Thing",              cmd: "game.killNormal(window.characters[0])" },
+    { name: "Go to Map",               cmd: "game.setMap(1,2)" },
+    { name: "Random Map",              cmd: "game.setMapRandom()" },
+    { name: "Shift Location",          cmd: "game.shiftToLocation(2)" },
+    { name: "Gain Life",               cmd: "game.gainLife(1)" },
+    { name: "Low Gravity",             cmd: "game.player.gravity = game.gravity/2" },
+    { name: "Unlimited Time",          cmd: "game.data.time.amount = Infinity" },
+    { name: "Lulz()",                  cmd: "game.lulz()" }
   ];
 
-  // 2) Store the same data in window.cheats (if you still need it elsewhere):
-  window.cheats = {};
-  cheatsList.forEach(function(c) {
-    // use the name as a camelCase key (e.g. "StarPower")
-    var key = c.name.replace(/[ \/()"]/g, "_").replace(/__+/g, "_");
-    window.cheats[key] = c.cmd;
-  });
-
-  // 3) Render them into your #in_cheats container:
+  // 2) Grab the container and build a UL
   var container = document.getElementById("in_cheats");
   if (!container) return;
+  var ul = document.createElement("ul");
+  ul.style.listStyle = "none";
+  ul.style.padding = "0";
+  ul.style.margin = "0";
 
-  // Build a grouped list by category titles:
-  var html = "";
-  var groups = {
-    "Game Powerups":        cheatsList.slice(0,5),
-    "Add & Kill Things":    cheatsList.slice(5,8),
-    "Map Shifting":         cheatsList.slice(8,12),
-    "Misc / Dev Aliases":   cheatsList.slice(12)
-  };
+  // 3) For each cheat, create an LI and attach click handler
+  cheatsList.forEach(function(c) {
+    var li = document.createElement("li");
+    li.textContent = c.name;
+    li.style.cursor = "pointer";
+    li.style.padding = "4px 0";
+    li.setAttribute("title", c.cmd);
 
-  Object.keys(groups).forEach(function(title) {
-    html += "<div class='cheat-group'>";
-    html +=   "<h4>" + title + "</h4>";
-    html +=   "<ul>";
-    groups[title].forEach(function(c) {
-      html += "<li><code>" + c.cmd + "</code> – " + c.name + "</li>";
-    });
-    html +=   "</ul>";
-    html += "</div>";
+    // On click, execute the command string
+    li.addEventListener("click", function() {
+      try {
+        eval(c.cmd);  // runs the cheat in global scope :contentReference[oaicite:7]{index=7}
+      } catch(e) {
+        console.error("Cheat failed:", e);
+      }
+    }, false);        // use addEventListener for best practice :contentReference[oaicite:8]{index=8}
+
+    ul.appendChild(li);
   });
 
-  container.innerHTML = html;
+  // 4) Inject into your menu and clear any old content
+  container.innerHTML = "";
+  container.appendChild(ul);
 }
+
 
 
 function displayCheats() {
