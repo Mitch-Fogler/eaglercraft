@@ -169,8 +169,13 @@ function toggleGame(me) {
 
 function setCheats() {
   var cheatsList = [
-    { name: "Mushroom / Fire-Flower",  fn: "game.playerShroom",    args: ["game.player"] },
-    { name: "Star Power",               fn: "game.playerStar",      args: ["game.player"] },
+    { name: "Mushroom / Fire-Flower",
+  fn:   "game.playerShroom",
+  args: ["game.player"] },
+{ name: "Star Power",
+  fn:   "game.playerStar",
+  args: ["game.player"] },
+
     { name: "Scroll Player (px)",       fn: "game.scrollPlayer",    inputs: [{ placeholder: "100" }] },
     { name: "Float Through Level (s)",  fn: "game.scrollTime",      inputs: [{ placeholder: "5"   }] },
     { name: "Fast-Forward (T)",         fn: "game.fastforward",     inputs: [{ placeholder: "1"   }] },
@@ -244,27 +249,31 @@ function setCheats() {
     var btn = document.createElement("button");
     btn.textContent = "Run";
     btn.className = "cheat-btn";
-    btn.addEventListener("click", function() {
-      var code;
-      if (c.inputs) {
-        var values = Array.from(row.querySelectorAll(".cheat-input")).map(function(el, i) {
-          var val = el.value.trim() || el.placeholder;
-          // if it's the first select for addThing, wrap in quotes
-          if (el.tagName === "SELECT") return "'" + val + "'";
-          return val;
-        });
-        code = c.fn + "(" + values.join(", ") + ")";
-      } else {
-        code = c.fn + "()";
-      }
-      try {
-        // For IIFE cheats, fn is the entire wrapper
-        if (code.match(/^\(function/)) eval(code + "()");
-        else eval(code);
-      } catch(e) {
-        console.error("Cheat execution failed:", code, e);
-      }
-    });
+btn.addEventListener("click", function() {
+  var code;
+
+  if (c.inputs) {
+    // (unchanged) build from user inputs…
+    var values = Array.from(row.querySelectorAll(".cheat-input")).map(el =>
+      el.value.trim() || el.placeholder
+    );
+    code = c.fn + "(" + values.join(", ") + ")";
+  }
+  else if (c.args) {
+    // <— new: use the args array
+    code = c.fn + "(" + c.args.join(", ") + ")";
+  }
+  else {
+    code = c.fn + "()";
+  }
+
+  try {
+    eval(code);
+  } catch (e) {
+    console.error("Cheat execution failed:", code, e);
+  }
+});
+
     row.appendChild(btn);
 
     container.appendChild(row);
