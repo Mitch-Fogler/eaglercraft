@@ -8,6 +8,11 @@ body {
   text-transform: uppercase;
   line-height: 117%;
 }
+#out_cheats .expander { padding: 0.5em; }
+.cheat-group { margin-bottom: 1em; }
+.cheat-group h4 { margin: 0.3em 0; font-size: 1.1em; }
+.cheat-group ul { list-style: inside disc; margin: 0; padding: 0.5em; }
+.cheat-group li { margin: 0.2em 0; font-family: monospace; }
 
 /* General Positioning */
 
@@ -42,12 +47,15 @@ iframe {
   width: 280px;
   text-align: center;
 }
-
-#out_editor { float: left; }
-
-#out_mapselect { float: right; }
-
-#out_options { margin: 7px auto; }
+#out_editor,
+#out_mapselect,
+#out_options,
+#out_cheats {
+  float: none;               /* cancel the old floats */
+  display: inline-block;     /* line up side-by-side */ :contentReference[oaicite:6]{index=6}
+  vertical-align: middle;    /* align their baselines */
+  margin: 0 10px;            /* spacing between items */
+}
 
 .expander {
   margin-top: -24px;
