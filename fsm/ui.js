@@ -236,33 +236,46 @@ function setCheats() {
 
     // Other cheats
     { name: "Unlimited Time", action: function() { game.data.time.amount = Infinity; } },
-    { name: "Lulz()", action: function() { game.lulz(); } },
-    { name: "Infinite Jump", action: function() {
-        if (!window._origJump) {
-          window._origJump = game.player.jump.bind(game.player);
-          game.player.jump = function() { window._origJump(); game.player.onGround = true; };
+    { name: "Infinite Jump", isToggle: true,
+      getState: function() { return !!window._infJumpInterval; },
+      action: function() {
+        if (!window._infJumpInterval) {
+          window._infJumpInterval = setInterval(function() {
+            if (game && game.player) {
+              game.player.onGround = true;
+            }
+          }, 50);
           console.log("Infinite Jump enabled");
         } else {
-          game.player.jump = window._origJump;
-          delete window._origJump;
+          clearInterval(window._infJumpInterval);
+          delete window._infJumpInterval;
           console.log("Infinite Jump disabled");
         }
-      },
-      isToggle: true,
-      getState: function() { return !!window._origJump; }
-    },
-    { name: "Invert Gravity", isToggle: true, getState: function() { return !!window._gravityInverted; }, action: function() {
-        window._gravityInverted = !window._gravityInverted;
-        game.gravity = window._gravityInverted ? -Math.abs(game.gravity) : Math.abs(game.gravity);
-        game.player.gravity = game.gravity;
-        console.log("Gravity", window._gravityInverted ? "inverted" : "restored", "to", game.gravity);
       }
     },
-    { name: "Fill Coins", action: function() { game.data.coins = 999; console.log("Coins set to 999"); } },
+    { name: "Fill Coins", action: function() {
+        if (!game || !game.player) return;
+        var ctor = window.Coin || game.Coin;
+        var px = game.player.xloc, py = game.player.yloc;
+        for (var i = 0; i < 50; i++) {
+          // spawn coins around player
+          var offsetX = (Math.random() - 0.5) * 100;
+          var offsetY = (Math.random() - 0.5) * 30;
+          if (typeof ctor === "function") game.addThing(ctor, px + offsetX, py + offsetY);
+        }
+        console.log("Spawned 50 coins around player");
+      }
+    },
     { name: "Kill All", action: function() {
-        window.characters.slice().forEach(function(c) {
-          if(c && c.constructor.name !== "PlayerCharacter") game.killNormal(c);
-        }); console.log("All non-player things killed");
+        ["characters","solids","scenery"].forEach(function(group) {
+          var arr = window[group];
+          if (arr && Array.isArray(arr)) {
+            arr.slice().forEach(function(c) {
+              game.killNormal(c);
+            });
+          }
+        });
+        console.log("All non-player things killed");
       }
     }
   ];
