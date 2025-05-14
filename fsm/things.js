@@ -1741,6 +1741,9 @@ function playerRemoveStar(me) {
 
 // Big means it must happen: 2 means no animation
 function killPlayer(me, big) {
+  // Cheat: ignore all damage if Invincibility is enabled
+  if(window._invincible) return;
+
   if(!me.alive || me.flickering || me.dying) return;
   // If this is an auto kill, it's for rizzles
   if(big == 2) {
