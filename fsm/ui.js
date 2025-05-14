@@ -168,56 +168,109 @@ function toggleGame(me) {
 }
 
 function setCheats() {
-  // 1) Define your cheats with human names + exec strings
   var cheatsList = [
-    { name: "Mushroom / Fire-Flower", cmd: "game.playerShroom(game.player)" },
-    { name: "Star Power",              cmd: "game.playerStar(game.player)" },
-    { name: "Scroll Player (px)",      cmd: "game.scrollPlayer(100)" },
-    { name: "Float (s)",               cmd: "game.scrollTime(5)" },
-    { name: "Fast-Forward (T)",        cmd: "game.fastforward(1)" },
-    { name: "Add Thing",               cmd: "game.addThing(Goomba, 50, 100)" },
-    { name: "Kill Thing",              cmd: "game.killNormal(window.characters[0])" },
-    { name: "Go to Map",               cmd: "game.setMap(1,2)" },
-    { name: "Random Map",              cmd: "game.setMapRandom()" },
-    { name: "Shift Location",          cmd: "game.shiftToLocation(2)" },
-    { name: "Gain Life",               cmd: "game.gainLife(1)" },
-    { name: "Low Gravity",             cmd: "game.player.gravity = game.gravity/2" },
-    { name: "Unlimited Time",          cmd: "game.data.time.amount = Infinity" },
-    { name: "Lulz()",                  cmd: "game.lulz()" }
+    { name: "Mushroom / Fire-Flower",  fn: "game.playerShroom",    args: ["game.player"] },
+    { name: "Star Power",               fn: "game.playerStar",      args: ["game.player"] },
+    { name: "Scroll Player (px)",       fn: "game.scrollPlayer",    inputs: [{ placeholder: "100" }] },
+    { name: "Float Through Level (s)",  fn: "game.scrollTime",      inputs: [{ placeholder: "5"   }] },
+    { name: "Fast-Forward (T)",         fn: "game.fastforward",     inputs: [{ placeholder: "1"   }] },
+    {
+      name: "Add Thing",
+      fn: "game.addThing",
+      // dropdown + x + y
+      inputs: [
+        { type: "select", options: ["Goomba", "Koopa", "PiranhaPlant", "Coin", "Mushroom", "FireFlower"] },
+        { placeholder: "50" },
+        { placeholder: "100" }
+      ]
+    },
+    { name: "Kill Thing",               fn: "game.killNormal",      inputs: [{ placeholder: "window.characters[0]" }] },
+    { name: "Go to Map (A,B)",          fn: "game.setMap",          inputs: [{ placeholder: "1" }, { placeholder: "1" }] },
+    { name: "Random Map",               fn: "game.setMapRandom",    args: [] },
+    { name: "Shift to Location",        fn: "game.shiftToLocation", inputs: [{ placeholder: "2" }] },
+    { name: "Gain Life",                fn: "game.gainLife",        inputs: [{ placeholder: "1" }] },
+    { name: "Low Gravity",              fn: "(function(){ game.player.gravity = game.gravity/2; })", args: [] },
+    { name: "Unlimited Time",           fn: "(function(){ game.data.time.amount = Infinity; })", args: [] },
+    { name: "Lulz()",                   fn: "game.lulz",            args: [] }
   ];
 
-  // 2) Grab the container and build a UL
-  var container = document.getElementById("in_cheats");
-  if (!container) return;
-  var ul = document.createElement("ul");
-  ul.style.listStyle = "none";
-  ul.style.padding = "0";
-  ul.style.margin = "0";
-
-  // 3) For each cheat, create an LI and attach click handler
+  // Build window.cheats in case you need it elsewhere
+  window.cheats = {};
   cheatsList.forEach(function(c) {
-    var li = document.createElement("li");
-    li.textContent = c.name;
-    li.style.cursor = "pointer";
-    li.style.padding = "4px 0";
-    li.setAttribute("title", c.cmd);
-
-    // On click, execute the command string
-    li.addEventListener("click", function() {
-      try {
-        eval(c.cmd);  // runs the cheat in global scope :contentReference[oaicite:7]{index=7}
-      } catch(e) {
-        console.error("Cheat failed:", e);
-      }
-    }, false);        // use addEventListener for best practice :contentReference[oaicite:8]{index=8}
-
-    ul.appendChild(li);
+    var key = c.name.replace(/[^A-Za-z0-9]/g, "_");
+    var sig = c.args
+      ? c.fn + "(" + c.args.join(", ") + ")"
+      : c.fn + "()";
+    window.cheats[key] = sig;
   });
 
-  // 4) Inject into your menu and clear any old content
+  var container = document.getElementById("in_cheats");
+  if (!container) return;
   container.innerHTML = "";
-  container.appendChild(ul);
+
+  cheatsList.forEach(function(c) {
+    var row = document.createElement("div");
+    row.className = "cheat-row";
+
+    // Label
+    var lbl = document.createElement("span");
+    lbl.textContent = c.name;
+    lbl.className = "cheat-label";
+    row.appendChild(lbl);
+
+    // Inputs (if any)
+    if (c.inputs) {
+      c.inputs.forEach(function(spec) {
+        var inp;
+        if (spec.type === "select") {
+          inp = document.createElement("select");
+          spec.options.forEach(function(opt) {
+            var o = document.createElement("option");
+            o.value = opt;
+            o.textContent = opt;
+            inp.appendChild(o);
+          });
+        } else {
+          inp = document.createElement("input");
+          inp.type = "text";
+          inp.placeholder = spec.placeholder;
+        }
+        inp.className = "cheat-input";
+        row.appendChild(inp);
+      });
+    }
+
+    // Run button
+    var btn = document.createElement("button");
+    btn.textContent = "Run";
+    btn.className = "cheat-btn";
+    btn.addEventListener("click", function() {
+      var code;
+      if (c.inputs) {
+        var values = Array.from(row.querySelectorAll(".cheat-input")).map(function(el, i) {
+          var val = el.value.trim() || el.placeholder;
+          // if it's the first select for addThing, wrap in quotes
+          if (el.tagName === "SELECT") return "'" + val + "'";
+          return val;
+        });
+        code = c.fn + "(" + values.join(", ") + ")";
+      } else {
+        code = c.fn + "()";
+      }
+      try {
+        // For IIFE cheats, fn is the entire wrapper
+        if (code.match(/^\(function/)) eval(code + "()");
+        else eval(code);
+      } catch(e) {
+        console.error("Cheat execution failed:", code, e);
+      }
+    });
+    row.appendChild(btn);
+
+    container.appendChild(row);
+  });
 }
+
 
 
 
