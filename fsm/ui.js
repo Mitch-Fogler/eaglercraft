@@ -251,42 +251,28 @@ function setCheats() {
 
     // Time and jump cheats
     { name: "Unlimited Time", action: function() { game.data.time.amount = Infinity; } },
-    {
-      name: "Infinite Jump",
-      isToggle: true,
-      getState: function() { return !!window._origJump; },
-      action: function() {
-        if (!window._origJump) {
-          window._origJump = game.player.jump.bind(game.player);
-          game.player.jump = function() { window._origJump(); window.player && (game.player.onGround = true); };
-          console.log("Infinite Jump enabled");
-        } else {
-          game.player.jump = window._origJump;
-          delete window._origJump;
-          console.log("Infinite Jump disabled");
-        }
-      }
-    },
+    // Infinite Jump
+{
+  name: "Infinite Jump",
+  isToggle: true,
+  getState: function() { return !!window._infiniteJump; },
+  action: function() {
+    window._infiniteJump = !window._infiniteJump;
+    console.log("Infinite Jump " + (window._infiniteJump ? "enabled" : "disabled"));
+  }
+},
 
-    // Invincibility
-    {
-      name: "Toggle Invincibility",
-      isToggle: true,
-      getState: function() { return !!window._invincible; },
-      action: function() {
-        if (!window._invincible) {
-          window._origHurt = game.player.hurt.bind(game.player);
-          game.player.hurt = function() {};
-          window._invincible = true;
-          console.log("Invincibility enabled");
-        } else {
-          game.player.hurt = window._origHurt;
-          delete window._origHurt;
-          window._invincible = false;
-          console.log("Invincibility disabled");
-        }
-      }
-    }
+// Invincibility
+{
+  name: "Toggle Invincibility",
+  isToggle: true,
+  getState: function() { return !!window._invincible; },
+  action: function() {
+    window._invincible = !window._invincible;
+    console.log("Invincibility " + (window._invincible ? "enabled" : "disabled"));
+  }
+}
+
   ];
 
   // Rebuild lookup
