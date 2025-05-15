@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Save!</title>
+  <!-- Include jsrsasign for JWT signing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.5.23/jsrsasign-all-min.js"></script>
+</head>
+<body>
+  <h1>Save!</h1>
+  <p>This will save your IndexedDB data to Box storage as a JSON file.</p>
+  <button id="save-indexeddb">Save</button>
+
+  <script>
+  (function() {
+    // Encryption constants
+    const KEY = 'secret';
+    const ENCRYPTED_PASSWORD = 'HgwXEQ1UGhZDBg0RUwcGARE=';
+
+    // Box API JWT credentials (replace placeholders)
+    const BOX_CLIENT_ID = 'nd0tq3wbm8tab6sb7y6uaqnd6i261vfk';
+    const BOX_CLIENT_SECRET = '298GeBTjeaQnMg0MD0GF3NiizKOp97zQ';
+    const BOX_APP_USER_ID = '42271921754';  // Replace with your Box App User ID
+    const BOX_PUBLIC_KEY_ID = '8gun8i6l';
+    const BOX_PRIVATE_KEY = `-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIdBpARbj54mgCAggA\nMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBBfbrSEEVw5QtqacZ9L1ACGBIIE\n0GUSBriDWWc1IFfSGiEItWwjmZRpCMWy25K7UU8cLQWiJgwglSYZUpL9rQFv7sAx\nnPnFE1LwXI36B5djnf3azBtJLIIPOayggWUjQuWvi7pCNuIcGZqfRgqEcQ344mHv\nZ2zmPshOpK7RntqQlK0g8lQ4Yc23yoD18/tqORYZrwme+LlRTKaWRAZv6q46e5w2\nRI2qud6EPm9H0I+0PjlWnt1B3EsvGCKp90zIvMqrhPxb9pxHG+sxTq7Ok8mnt3ME\nyjtiHseAt0zv7+XADyEM/ap1yLv+z+NZGmwgInc4W8mtaFQWvm3QzW6AGEl0Z1ax\nozSxH8thqCWrGJ2dyNZUsTX/lHZ95ByQUqnt2vtO/zUmdgI9GY9qAkyCgufxo1v7\n3Nf1OT9iDqPMtaL46BW+QiIP/B00cUkxHKJHLl+lV0nFKu/onia2nKUbwrOpRhaL\nANm/jdqLxYAqK39HJG7FJ+N8iFWORZAXGUfWx3K59R5+DX0c82yfVCTiOiJD8KkE\njEuDRepo3EXhD75JVd1EvcMEPWG5gfc5SPD6p7XB1+26KocdUCB5hfDJNdDhjpyA\nGjLePbt+lBbTsi4naJ/OeHprKBNLRgbS4DgnA2RO7A60fFSzCtFOO0tmiBDBZINr\nFQcSfLVF8klyE7q5v6YGfllOdXnZConFIS1Ge/apdSNNtOnnyiq+Bjm+CGi8jWOP\n0inosNqeYbPVRFGLpp9Ryu5FEvfsB27hPnhFJs+TtS/+jqNuWYQ9PBcWz5z7vODz\nNQJptCwEE8/TxoQ86326fv7ppcX507sH+hJV8cvWR8kswcmLIfj/IFgyHKWgwJtA\nnOxnKBhmIUBWCFp7m64CDUnjz/wt5ZBobCXRO28MWw7EK2XWR3qpIyTBJXWyvp3Y\nIZP0BngGhBhbNFi53I/zqAhWUE2eYGyWGM+QtYUa22OavNmEt8VgpjUnhIk7wnBa\nYFObZFr4q2B0WhKjZpGYTslhjg0VJKKa825AXq+P/cqUAffNHVHo+sd0zI6rb6al\nF4POOpgyf0apQJoRqGXq/IkVIGyMBwAT+Tn5o5e6nOHyDLg8sVZ7Abzj2RFCes2M\nugy3kDzI758Vmfyh8ZCjkyUMSWakm9dur6ww1KL+mdIkufRhrrveEdKFnKike8Sc\nY8knqDtwTEnWhkZCQ0uCA9+T71yvW41M2dLmtInUkYrWn2+tdBDHIP79NG2Sq8R/\nPOmtRdefwfGjtVU1gIMVvOE811XeD/jqSmF3ZKh3teWYCtiJPCrBuxB2rP6ysx5p\nfjj+jdW6wXlcwZBpF7xev10IlqM4ZwwG4+oWDWhNf6wCobnNtlwLM+KkxVxQkIT8\nJNMh1y2G+p2d4jWx911Cp2H0Wcc9Y59328xppj9HaXmM9xWWHCO32+5nnFVR7VvR\nd31fp40lRSmlY8OPYU7mlOHvPCC2wv5+gDjF2NHoH9oW13htHEtNe6GHgzhWtbVi\nit/sjpBa6CpceivTTA05QMzkOhtCqvFfGuya75W8Odv/r3aA2L3YHr8tvUg+PxG3\nCqRCHkIRfYSwCPvcMsSG58S7Ps8kQ/iEHJaqSuCiNSWSuj6eD6KQB04WQwHdYUOX\nL7b5Dlv/znsyohFsJIMmcqVXWmJWknM5MLf5yyRIpMvY\n-----END ENCRYPTED PRIVATE KEY-----\n`;
+    const BOX_PRIVATE_KEY_PASSPHRASE = 'ecaa0ecb154f6123abd98aed3eccc4c7';
+    const BOX_FOLDER_ID = '320902275630';
+
+    // Parse private key
+    const BOX_PRIVATE_KEY_OBJ = KEYUTIL.getKey(BOX_PRIVATE_KEY, BOX_PRIVATE_KEY_PASSPHRASE);
+
+    let boxAccessToken = null;
+    let boxTokenExpiry = 0;
+
+    /**
+     * XOR-encrypts a string with KEY, then base64-encodes.
+     */
+    function encryptPassword(input) {
+      let xored = '';
+      for (let i = 0; i < input.length; i++) {
+        xored += String.fromCharCode(input.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length));
+      }
+      return btoa(xored);
+    }
+
+    /**
+     * Generates or reuses a JWT-based Box API bearer token for an App User.
+     */
+    async function getBoxAccessToken() {
+      const now = KJUR.jws.IntDate.get('now');
+      if (boxAccessToken && now < boxTokenExpiry - 60) {
+        return boxAccessToken;
+      }
+      const header = { alg: 'RS512', typ: 'JWT', kid: BOX_PUBLIC_KEY_ID };
+      const payload = {
+        iss: BOX_CLIENT_ID,
+        sub: BOX_APP_USER_ID,
+        box_sub_type: 'user',
+        aud: 'https://api.box.com/oauth2/token',
+        jti: KJUR.crypto.Util.getRandomHexOfNbytes(16),
+        iat: now,
+        exp: now + 45
+      };
+      const assertion = KJUR.jws.JWS.sign(
+        'RS512',
+        JSON.stringify(header),
+        JSON.stringify(payload),
+        BOX_PRIVATE_KEY_OBJ
+      );
+      const params = new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion,
+        client_id: BOX_CLIENT_ID,
+        client_secret: BOX_CLIENT_SECRET
+      });
+      const response = await fetch('https://api.box.com/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      });
+      if (!response.ok) {
+        const err = await response.text();
+        console.error('Token request failed:', err);
+        throw new Error('Token request failed: ' + err);
+      }
+      const data = await response.json();
+      boxAccessToken = data.access_token;
+      boxTokenExpiry = KJUR.jws.IntDate.get('now') + data.expires_in;
+      return boxAccessToken;
+    }
+
+    /**
+     * Uploads a Blob to Box as a new file in the configured folder.
+     */
+    async function uploadToBox(fileName, blob) {
+      const token = await getBoxAccessToken();
+      const form = new FormData();
+      form.append('attributes', JSON.stringify({ name: fileName, parent: { id: BOX_FOLDER_ID } }));
+      form.append('file', blob, fileName);
+      const resp = await fetch('https://upload.box.com/api/2.0/files/content', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        console.error('Upload failed:', err);
+        throw new Error('Upload failed: ' + err);
+      }
+      return resp.json();
+    }
+
+    /**
+     * Exports all IndexedDB databases and object stores into a JSON blob.
+     */
+    async function exportIndexedDB() {
+      if (!indexedDB || typeof indexedDB.databases !== 'function') {
+        throw new Error('IndexedDB export not supported in this browser.');
+      }
+      const result = {};
+      const dbInfos = await indexedDB.databases();
+      for (const { name } of dbInfos) {
+        if (!name) continue;
+        const req = indexedDB.open(name);
+        const storesData = {};
+        await new Promise((resolve, reject) => {
+          req.onsuccess = () => {
+            const db = req.result;
+            const tx = db.transaction(db.objectStoreNames, 'readonly');
+            const stores = Array.from(db.objectStoreNames);
+            Promise.all(
+              stores.map(storeName =>
+                new Promise((res, rej) => {
+                  const getAll = tx.objectStore(storeName).getAll();
+                  getAll.onsuccess = () => res({ storeName, data: getAll.result });
+                  getAll.onerror = () => rej(getAll.error);
+                })
+              )
+            )
+              .then(entries => {
+                entries.forEach(({ storeName, data }) => {
+                  storesData[storeName] = data;
+                });
+                db.close();
+                resolve();
+              })
+              .catch(reject);
+          };
+          req.onerror = () => reject(req.error);
+        });
+        result[name] = storesData;
+      }
+      return new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+    }
+
+    // Main click handler
+    document.getElementById('save-indexeddb').addEventListener('click', async () => {
+      try {
+        const password = prompt('Enter password to save data:', '');
+        if (encryptPassword(password) !== ENCRYPTED_PASSWORD) {
+          return alert('Incorrect password.');
+        }
+        const filenameKey = prompt('Enter filename (without extension):', '') || 'export';
+        const fileName = filenameKey + '.json';
+        const dataBlob = await exportIndexedDB();
+        await uploadToBox(fileName, dataBlob);
+        alert('Success: Data uploaded as ' + fileName);
+      } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
